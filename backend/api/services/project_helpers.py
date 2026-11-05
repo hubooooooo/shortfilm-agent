@@ -7,22 +7,12 @@ from typing import Any, AsyncIterator, Callable, Dict, Optional
 
 from fastapi import Request
 
-from core.orchestrator import WorkflowStage
-
-STAGE_NAME_MAP = {
-    "script_generation": "剧本生成",
-    "character_design": "角色/场景设计",
-    "storyboard": "分镜设计",
-    "reference_generation": "参考图生成",
-    "video_generation": "视频生成",
-    "post_production": "后期剪辑",
-}
 
 
-def build_openclaw_message(stage: str, result: Dict[str, Any]) -> str:
+def build_openclaw_message(stage: str, result: Dict[str, Any], stage_name: str = "") -> str:
     openclaw_msg = result.get("openclaw_hint", "")
     if not openclaw_msg and result.get("requires_intervention", False):
-        stage_name = STAGE_NAME_MAP.get(stage, stage)
+        stage_name = stage_name or stage
         openclaw_msg = f"{stage_name}完成，需要用户确认。请展示给用户并等待用户确认后才能调用 /continue。"
     return openclaw_msg
 
@@ -73,13 +63,14 @@ async def stream_workflow_task(
     include_payload_summary: bool = False,
     on_disconnect: Optional[Callable[[], None]] = None,
 ) -> AsyncIterator[str]:
-    stage_enum = WorkflowStage(stage)
+    scenario_stage = workflow_engine.scenario_for(state).stage(stage)
+    stage_name = scenario_stage.name if scenario_stage else stage
 
     try:
         task = asyncio.create_task(
             workflow_engine.execute_stage(
                 state,
-                stage_enum,
+                stage,
                 input_data,
                 cancellation_check=cancellation_check,
                 progress_callback=progress_callback,
@@ -120,7 +111,7 @@ async def stream_workflow_task(
             "stage": stage,
             "status": status_snapshot,
             "requires_intervention": result.get("requires_intervention", False),
-            "openclaw": build_openclaw_message(stage, result),
+            "openclaw": build_openclaw_message(stage, result, stage_name),
         }
         if include_payload_summary:
             payload["payload_summary"] = result.get("payload")

@@ -15,13 +15,6 @@ from config import settings
 
 router = APIRouter(tags=["Workflow"])
 
-REQUIRED_MODEL_FIELDS = (
-    "llm_model",
-    "vlm_model",
-    "image_t2i_model",
-    "image_it2i_model",
-)
-
 VIDEO_MODE_TO_MODEL_FIELD = {
     "first_frame": "video_first_frame_model",
     "start_end_frame": "video_start_end_model",
@@ -41,9 +34,10 @@ def _active_video_model(values: dict) -> str:
     return values.get(model_field) or values.get("video_model") or getattr(settings, default_attr, "") or ""
 
 
-def _require_model_fields(values: dict) -> None:
-    missing = [field for field in REQUIRED_MODEL_FIELDS if not values.get(field)]
-    if not _active_video_model(values):
+def _require_model_fields(values: dict, scenario) -> None:
+    """Check the models this scenario's stages actually use (an image-only scenario needs no video model)."""
+    missing = [field for field in scenario.required_model_fields() if not values.get(field)]
+    if scenario.needs_video_model and not _active_video_model(values):
         missing.append("video_model")
     if missing:
         raise HTTPException(
@@ -52,19 +46,33 @@ def _require_model_fields(values: dict) -> None:
         )
 
 
+def _pick(value, scenario_defaults: dict, key: str, fallback):
+    """Request value → scenario default → global fallback."""
+    if value is not None and value != "":
+        return value
+    default = scenario_defaults.get(key)
+    return default if default is not None and default != "" else fallback
+
+
 @router.post("/api/project/start")
 async def start_project(req: ProjectStartRequest):
+    try:
+        scenario = workflow_engine.resolve_scenario(req.scenario)
+    except KeyError:
+        raise HTTPException(status_code=400, detail=f"Unknown scenario: {req.scenario}")
     final_idea = merge_uploaded_file_into_idea(req.idea, req.file_path)
-    _require_model_fields(req.model_dump())
+    _require_model_fields(req.model_dump(), scenario)
 
+    defaults = scenario.defaults
     session_id = uuid.uuid4().hex
     meta = {
+        "scenario": scenario.id,
         "idea": final_idea,
         "user_textbox_input": req.idea,
-        "style": req.style or getattr(settings, "STYLE", None) or "realistic",
-        "video_ratio": req.video_ratio or "9:16",
-        "video_resolution": req.video_resolution or "720P",
-        "expand_idea": req.expand_idea if req.expand_idea is not None else True,
+        "style": _pick(req.style, defaults, "style", getattr(settings, "STYLE", None) or "realistic"),
+        "video_ratio": _pick(req.video_ratio, defaults, "video_ratio", "9:16"),
+        "video_resolution": _pick(req.video_resolution, defaults, "video_resolution", "720P"),
+        "expand_idea": _pick(req.expand_idea, defaults, "expand_idea", True),
         "llm_model": req.llm_model,
         "vlm_model": req.vlm_model,
         "image_t2i_model": req.image_t2i_model,
@@ -73,22 +81,27 @@ async def start_project(req: ProjectStartRequest):
         "video_first_frame_model": req.video_first_frame_model or req.video_model or getattr(settings, "VIDEO_FIRST_FRAME_MODEL", ""),
         "video_start_end_model": req.video_start_end_model or getattr(settings, "VIDEO_START_END_MODEL", ""),
         "video_reference_model": req.video_reference_model or getattr(settings, "VIDEO_REFERENCE_MODEL", ""),
-        "video_generation_mode": req.video_generation_mode or getattr(settings, "VIDEO_GENERATION_MODE", "first_frame"),
+        "video_generation_mode": _pick(
+            req.video_generation_mode, defaults, "video_generation_mode",
+            getattr(settings, "VIDEO_GENERATION_MODE", None) or "first_frame",
+        ),
         "video_model": req.video_model,
         "enable_concurrency": req.enable_concurrency if req.enable_concurrency is not None else True,
         "web_search": req.web_search if req.web_search is not None else False,
-        "episodes": req.episodes if req.episodes is not None else 4,
+        "episodes": _pick(req.episodes, defaults, "episodes", 4),
     }
     meta["video_model"] = _active_video_model(meta)
     session = workflow_engine.create_session(session_id, meta)
 
     return {
         "session_id": session_id,
+        "scenario": scenario.id,
+        "stages": [stage.to_dict() for stage in scenario.stages],
         "status": session["status"],
         "params": {
             "idea": final_idea,
             "file_path": req.file_path,
-            "style": req.style,
+            "style": meta["style"],
             "llm_model": meta["llm_model"],
             "vlm_model": meta["vlm_model"],
             "image_t2i_model": meta["image_t2i_model"],
@@ -113,7 +126,9 @@ async def execute_stage(session_id: str, stage: str, request: Request):
         body = {}
 
     state, input_data = workflow_engine.prepare_stage_execution(session_id, stage, body)
-    _require_model_fields(input_data)
+    if not workflow_engine.has_stage(state, stage):
+        raise HTTPException(status_code=400, detail=f"Stage '{stage}' is not part of scenario '{state.scenario_id}'")
+    _require_model_fields(input_data, workflow_engine.scenario_for(state))
 
     cancellation_check, on_disconnect = make_cancellation(workflow_engine, session_id)
     progress_events, event_trigger, progress_callback = make_progress_channel()
@@ -243,6 +258,8 @@ async def intervene(session_id: str, req: InterventionRequest, request: Request)
         )
     except KeyError:
         raise HTTPException(404, "Session not found")
+    if not workflow_engine.has_stage(state, req.stage):
+        raise HTTPException(status_code=400, detail=f"Stage '{req.stage}' is not part of scenario '{state.scenario_id}'")
 
     cancellation_check, on_disconnect = make_cancellation(workflow_engine, session_id)
     progress_events, event_trigger, progress_callback = make_progress_channel()

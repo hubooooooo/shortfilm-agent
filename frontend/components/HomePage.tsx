@@ -1,9 +1,9 @@
 ﻿'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings2, Clock, ArrowRight, CheckCircle, Trash2, Globe, ListOrdered, Loader2 } from 'lucide-react';
+import { Settings2, Clock, ArrowRight, CheckCircle, Trash2, Globe, ListOrdered, Loader2, Film, ImageIcon } from 'lucide-react';
 import clsx from 'clsx';
-import { PROMPT_EXAMPLES } from '@/config/examples';
+import { brand } from '@/config/brand';
 import {
   STYLES,
   VIDEO_RATIOS,
@@ -12,10 +12,35 @@ import {
   type ProviderGroup,
   type VideoGenerationMode,
 } from '@/config/models';
-import { STAGES } from './TopBar';
 import { fetchModelGroupsByType, fetchVideoModelGroupsByAbility } from '@/lib/modelRegistry';
+import { fetchScenarios, type Scenario } from '@/lib/workflowApi';
+
+const SCENARIO_STORAGE_KEY = `${brand.storagePrefix}.scenario`;
+
+/* 首页默认文案：场景未声明 ui 字段或场景列表加载失败时使用 */
+const DEFAULT_HERO_TITLE = 'Hi，一起聊聊你的创作想法';
+const DEFAULT_HERO_SUBTITLE = '从一句灵感开始，让 AI 陪你完成整部作品';
+const DEFAULT_PLACEHOLDER = '描述你的想法，输入一段故事、一个画面或一句灵感……';
+
+function readStoredScenario(): string {
+  try {
+    return window.localStorage.getItem(SCENARIO_STORAGE_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function writeStoredScenario(id: string) {
+  try {
+    window.localStorage.setItem(SCENARIO_STORAGE_KEY, id);
+  } catch {
+    // ignore storage failures (private mode / quota)
+  }
+}
 
 export interface ProjectParams {
+  /** 场景包 id；留空时后端使用默认场景 */
+  scenario?: string;
   idea: string;
   file_path?: string; // 上传的文件路径 (由后端返回的文件名)
   style: string;
@@ -43,6 +68,9 @@ interface HistoryItem {
   date: string;
   status: string;
   stages?: Record<string, string>;
+  /** 会话所属场景的阶段顺序 */
+  stageIds?: string[];
+  scenario?: string;
 }
 
 interface HomePageProps {
@@ -52,27 +80,30 @@ interface HomePageProps {
   history: HistoryItem[];
 }
 
-const INSPIRATION_IMAGES = [
-  '/ui/inspiration-space.png',
-  '/ui/inspiration-ink.png',
-  '/ui/inspiration-detective.png',
-  '/ui/inspiration-cat.png',
-  '/ui/inspiration-mars.png',
-  '/ui/inspiration-wuxia.png',
-];
+/* 会话自身的阶段顺序：优先 stage_ids，旧数据回退到 status 映射的键 */
+function sessionStageIds(item: HistoryItem): string[] {
+  if (item.stageIds && item.stageIds.length > 0) return item.stageIds;
+  return Object.keys(item.stages || {});
+}
 
-/* 根据 status 映射生成进度文本 */
-function stageProgressLabel(statusMap?: Record<string, string>): { text: string; color: string } {
-  const map = statusMap || {};
-  const completed = Object.keys(map).filter(k => ["completed", "session_completed"].includes(map[k]));
+function isSessionDone(item: HistoryItem): boolean {
+  const ids = sessionStageIds(item);
+  const map = item.stages || {};
+  return ids.length > 0 && ids.every(id => ["completed", "session_completed"].includes(map[id]));
+}
+
+/* 根据会话自己的阶段列表生成进度文本 */
+function stageProgressLabel(item: HistoryItem, scenario?: Scenario): { text: string; color: string } {
+  const map = item.stages || {};
+  const ids = sessionStageIds(item);
+  const completed = ids.filter(id => ["completed", "session_completed"].includes(map[id]));
   if (completed.length === 0) return { text: '未开始', color: 'text-gray-400' };
-  if (completed.length >= STAGES.length) return { text: '已完成', color: 'text-green-600' };
-  
-  // 对比 STAGES 获取最后一个已完成的
-  const lastStageId = STAGES.filter(s => completed.includes(s.id)).pop()?.id || completed[completed.length - 1];
-  const stageDef = STAGES.find(s => s.id === lastStageId);
-  const name = stageDef?.shortName || lastStageId;
-  return { text: `已完成：${name} (${completed.length}/${STAGES.length})`, color: 'text-neutral-900' };
+  if (isSessionDone(item)) return { text: '已完成', color: 'text-green-600' };
+
+  const lastStageId = completed[completed.length - 1];
+  const stageDef = scenario?.stages.find(s => s.id === lastStageId);
+  const name = stageDef?.short_name || stageDef?.name || lastStageId;
+  return { text: `已完成：${name} (${completed.length}/${ids.length})`, color: 'text-neutral-900' };
 }
 
 export default function HomePage({ onStartProject, onResumeProject, onDeleteSession, history }: HomePageProps) {
@@ -95,6 +126,27 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
   const [webSearch, setWebSearch] = useState(false);
   const [episodes, setEpisodes] = useState(4);
   const [showEpisodesPanel, setShowEpisodesPanel] = useState(false);
+
+  // 场景包
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [selectedScenarioId, setSelectedScenarioId] = useState('');
+  const selectedScenario = scenarios.find(item => item.id === selectedScenarioId);
+  // 场景未加载时按旧行为处理（需要视频模型）
+  const requiresVideo = selectedScenario ? selectedScenario.requires_video_model : true;
+  const showEpisodes = !selectedScenario
+    || selectedScenario.category === 'video'
+    || selectedScenario.defaults?.episodes !== undefined;
+  const scenarioExamples = selectedScenario?.ui?.examples || [];
+  // 集数控件文案：场景可改名（如"组数"），带"集"字时沿用原有单位与提示
+  const episodesLabel = selectedScenario?.ui?.episodes_label || '剧集';
+  const episodesIsSeries = episodesLabel.includes('集');
+  const episodesUnit = episodesIsSeries ? ' 集' : '';
+  const scenarioById = (id?: string) => scenarios.find(item => item.id === id);
+  // 内置画风 + 当前场景自带画风（去重），保证场景默认画风能被选中
+  const styleOptions: { id: string; label: string }[] = [
+    ...STYLES,
+    ...(selectedScenario?.styles || []).filter(st => st?.id && !STYLES.some(b => b.id === st.id)),
+  ];
 
   // 上传相关状态
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -119,7 +171,10 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
       : selectedVideoMode === 'reference'
         ? selectedReferenceVideo
         : selectedFirstFrameVideo;
-  const modelConfigReady = Boolean(selectedLLM && selectedVLM && selectedT2I && selectedI2I && activeVideoModel && selectedRatio && selectedResolution);
+  const modelConfigReady = Boolean(
+    selectedLLM && selectedVLM && selectedT2I && selectedI2I && selectedRatio && selectedResolution
+    && (!requiresVideo || activeVideoModel)
+  );
   const canStart = Boolean((idea.trim() || uploadedFile) && modelConfigReady && !configLoading);
 
   useEffect(() => {
@@ -153,6 +208,8 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
     const loadDefaultConfig = async () => {
       setConfigLoading(true);
       setConfigError('');
+      // 场景列表与默认配置并行加载；场景加载失败不阻塞首页（后端会使用默认场景）
+      const scenariosPromise = fetchScenarios().catch(() => null);
       try {
         const resp = await fetch('/api/config');
         if (!resp.ok) throw new Error('读取默认模型配置失败');
@@ -165,7 +222,8 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
         const referenceModel = models.video_reference || 'wan2.7-r2v';
         const videoMode = (generation.video_generation_mode || 'first_frame') as VideoGenerationMode;
         const selectedModel = videoMode === 'start_end_frame' ? startEndModel : videoMode === 'reference' ? referenceModel : firstFrameModel;
-        if (!models.llm || !models.vlm || !models.image_t2i || !models.image_it2i || !selectedModel) {
+        // 视频模型是否必填取决于所选场景，这里只校验各场景共用的模型
+        if (!models.llm || !models.vlm || !models.image_t2i || !models.image_it2i) {
           throw new Error('backend/config.yaml 缺少主流程默认模型');
         }
         if (cancelled) return;
@@ -180,15 +238,43 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
         setSelectedReferenceVideo(referenceModel);
         setSelectedRatio(generation.video_ratio || '16:9');
         setSelectedResolution(generation.video_resolution || '720P');
+        void selectedModel;
       } catch (e: any) {
         if (!cancelled) setConfigError(e.message || '读取默认模型配置失败');
       } finally {
+        const list = await scenariosPromise;
+        if (!cancelled && list && list.scenarios.length > 0) {
+          setScenarios(list.scenarios);
+          const stored = readStoredScenario();
+          const initial = list.scenarios.find(item => item.id === stored)
+            || list.scenarios.find(item => item.id === list.default)
+            || list.scenarios[0];
+          setSelectedScenarioId(initial.id);
+          applyScenarioDefaults(initial);
+        }
         if (!cancelled) setConfigLoading(false);
       }
     };
     loadDefaultConfig();
     return () => { cancelled = true; };
   }, []);
+
+  /* 切换场景时把场景默认参数套用到风格 / 比例 / 分辨率 / 视频方式 / 集数 */
+  function applyScenarioDefaults(scenario: Scenario) {
+    const d = scenario.defaults || {};
+    if (d.style) setSelectedStyle(d.style);
+    if (d.video_ratio) setSelectedRatio(d.video_ratio);
+    if (d.video_resolution) setSelectedResolution(d.video_resolution);
+    if (d.video_generation_mode) setSelectedVideoMode(d.video_generation_mode as VideoGenerationMode);
+    if (typeof d.episodes === 'number' && d.episodes > 0) setEpisodes(d.episodes);
+  }
+
+  const handleSelectScenario = (scenario: Scenario) => {
+    if (scenario.id === selectedScenarioId) return;
+    setSelectedScenarioId(scenario.id);
+    applyScenarioDefaults(scenario);
+    writeStoredScenario(scenario.id);
+  };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -226,6 +312,7 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
   const handleStart = (auto?: boolean) => {
     if (!canStart) return;
     onStartProject({
+      scenario: selectedScenario?.id,
       idea,
       file_path: uploadedFile?.path, // 如果上传了文件，传给后端
       style: selectedStyle,
@@ -242,7 +329,8 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
       video_model: activeVideoModel,
       enable_concurrency: enableConcurrency,
       web_search: webSearch,
-      episodes,
+      // 不展示集数控件的场景交给后端按场景默认值处理
+      episodes: showEpisodes ? episodes : undefined,
     }, auto);
   };
 
@@ -301,19 +389,49 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
         {/* 标题 */}
         <div className="sfa-hero-title text-center mb-10">
           <div className="inline-flex items-center gap-2 mb-3">
-            <h1 className="text-2xl font-medium text-white">Hi，一起聊聊你的创作想法</h1>
+            <h1 className="text-2xl font-medium text-white">{selectedScenario?.ui?.hero_title || DEFAULT_HERO_TITLE}</h1>
           </div>
           <p className="text-sm text-white/75">
-            从一句灵感开始，让 AI 陪你完成整部短片
+            {selectedScenario?.ui?.hero_subtitle || selectedScenario?.tagline || DEFAULT_HERO_SUBTITLE}
           </p>
         </div>
+
+        {/* 场景选择 */}
+        {scenarios.length > 1 && (
+          <div className="sfa-scenario-picker" role="tablist" aria-label="创作场景">
+            {scenarios.map(item => {
+              const active = item.id === selectedScenarioId;
+              const isImage = item.category === 'image';
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => handleSelectScenario(item)}
+                  className={clsx('sfa-scenario-tab', active && 'sfa-scenario-tab-active')}
+                  title={item.description || item.tagline}
+                >
+                  <span className="sfa-scenario-tab-head">
+                    <span className="sfa-scenario-tab-name">{item.name}</span>
+                    <span className="sfa-scenario-badge">
+                      {isImage ? <ImageIcon className="w-3 h-3" /> : <Film className="w-3 h-3" />}
+                      {isImage ? '图片' : '视频'}
+                    </span>
+                  </span>
+                  {item.tagline && <span className="sfa-scenario-tab-tagline">{item.tagline}</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* 输入区域 */}
         <div className="sfa-composer bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-6">
           <textarea
             value={idea}
             onChange={e => setIdea(e.target.value)}
-            placeholder="描述你的想法，输入一段故事、一个画面或一句灵感……"
+            placeholder={selectedScenario?.ui?.placeholder || DEFAULT_PLACEHOLDER}
             className="sfa-prompt-input w-full bg-transparent text-sm text-gray-800 placeholder-gray-400 resize-none outline-none min-h-[100px]"
             onKeyDown={e => {
               if (e.key === 'Enter' && !e.shiftKey && (idea.trim() || uploadedFile)) {
@@ -325,6 +443,7 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
 
           <div className="sfa-composer-toolbar flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
             <div className="flex items-center gap-3">
+              {showEpisodes && (
               <div className="relative">
                 <button
                   onClick={() => setShowEpisodesPanel(!showEpisodesPanel)}
@@ -336,7 +455,7 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
                   )}
                 >
                   <ListOrdered className="w-3.5 h-3.5" />
-                  剧集：{episodes} 集
+                  {episodesLabel}：{episodes}{episodesUnit}
                 </button>
 
                 {showEpisodesPanel && (
@@ -348,9 +467,9 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
                     <div className="sfa-episodes-popover absolute bottom-full left-0 mb-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 p-4 z-20 animate-in fade-in slide-in-from-bottom-2">
                       <div className="flex flex-col gap-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-gray-700">设置总集数</span>
+                          <span className="text-xs font-semibold text-gray-700">{episodesIsSeries ? '设置总集数' : `设置${episodesLabel}`}</span>
                           <span className="sfa-episode-count text-[10px] text-neutral-900 font-bold bg-black/5 px-1.5 py-0.5 rounded-full">
-                            {episodes} 集
+                            {episodes}{episodesUnit}
                           </span>
                         </div>
                         
@@ -377,6 +496,7 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
                           </button>
                         </div>
 
+                        {episodesIsSeries && (
                         <div className="space-y-1 border-t border-gray-50 pt-2">
                           <p className="text-[10px] text-gray-400 leading-tight">
                             每集预估时长约 1–2 分钟
@@ -385,11 +505,13 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
                             推荐设置 4–6 集
                           </p>
                         </div>
+                        )}
                       </div>
                     </div>
                   </>
                 )}
               </div>
+              )}
 
               <button
                 onClick={() => setShowSettings(!showSettings)}
@@ -472,7 +594,7 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
                     ? 'bg-black text-white hover:bg-gray-800 shadow-sm'
                     : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 )}
-                title="自动执行全部六个阶段，无需手动确认"
+                title={`自动执行全部 ${selectedScenario?.stages.length || ''} 个阶段，无需手动确认`.replace('  ', ' ')}
               >
                 一键生成
               </button>
@@ -482,6 +604,9 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
             <div className={clsx('mt-3 text-xs', configError ? 'text-red-500' : 'text-gray-400')}>
               {configError || '正在读取默认模型……'}
             </div>
+          )}
+          {!configLoading && !configError && requiresVideo && !activeVideoModel && (
+            <div className="mt-3 text-xs text-red-500">当前场景需要视频模型，请在「生成配置」中选择</div>
           )}
 
           {/* 模型设置折叠面板 */}
@@ -495,7 +620,7 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
                     onChange={e => setSelectedStyle(e.target.value)}
                     className="bg-white border border-gray-200 rounded-lg px-2.5 py-2 text-gray-700 outline-none"
                   >
-                    {STYLES.map(s => (
+                    {styleOptions.map(s => (
                       <option key={s.id} value={s.id}>{s.label}</option>
                     ))}
                   </select>
@@ -504,7 +629,7 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
 
               <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1">
-                  <span className="text-gray-500 font-medium">视频分辨率</span>
+                  <span className="text-gray-500 font-medium">{requiresVideo ? '视频分辨率' : '分辨率'}</span>
                   <select
                     value={selectedResolution}
                     onChange={e => setSelectedResolution(e.target.value)}
@@ -516,7 +641,7 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
                   </select>
                 </label>
                 <label className="flex flex-col gap-1">
-                  <span className="text-gray-500 font-medium">视频长宽比</span>
+                  <span className="text-gray-500 font-medium">{requiresVideo ? '视频长宽比' : '画面比例'}</span>
                   <div className="flex gap-1">
                     {VIDEO_RATIOS.map(r => (
                       <button
@@ -623,6 +748,7 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
                     ))}
                   </select>
                 </label>
+                {requiresVideo && (<>
                 <label className="flex flex-col gap-1 col-span-2">
                   <span className="text-gray-500 font-medium">视频生成方式</span>
                   <select
@@ -651,6 +777,7 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
                     ))}
                   </select>
                 </label>
+                </>)}
                 <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -666,34 +793,44 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
           )}
         </div>
 
-        {/* 示例卡片 */}
+        {/* 示例卡片：来自当前场景的 ui.examples */}
+        {scenarioExamples.length > 0 && (
         <div className="sfa-inspiration mb-10">
           <h3 className="text-sm font-semibold text-gray-900 mb-3">
             灵感示例
           </h3>
           <div className="sfa-inspiration-grid grid grid-cols-2 md:grid-cols-3 gap-2.5">
-            {PROMPT_EXAMPLES.map((ex, idx) => (
+            {scenarioExamples.map((ex, idx) => (
               <button
-                key={idx}
-                onClick={() => handleExampleClick(ex.text)}
+                key={`${selectedScenarioId}-${idx}`}
+                onClick={() => handleExampleClick(ex.idea)}
                 className="sfa-inspiration-card text-left bg-white rounded-xl border border-gray-200 hover:shadow-sm transition-all group"
               >
-                <div
-                  className="sfa-inspiration-media"
-                  style={{ backgroundImage: `url(${INSPIRATION_IMAGES[idx]})` }}
-                />
+                {ex.image ? (
+                  <div
+                    className="sfa-inspiration-media"
+                    style={{ backgroundImage: `url(${JSON.stringify(ex.image)})` }}
+                  />
+                ) : (
+                  <div className="sfa-inspiration-media sfa-inspiration-media-placeholder" aria-hidden="true">
+                    {selectedScenario?.category === 'image'
+                      ? <ImageIcon className="w-6 h-6" />
+                      : <Film className="w-6 h-6" />}
+                  </div>
+                )}
                 <div className="sfa-inspiration-copy">
                   <div className="text-sm font-medium text-white transition-colors mb-1">
                     {ex.title}
                   </div>
                   <div className="text-xs text-white/70 line-clamp-2">
-                    {ex.description}
+                    {ex.description || ex.idea}
                   </div>
                 </div>
               </button>
             ))}
           </div>
         </div>
+        )}
       </div>
 
       {/* 历史记录区域 */}
@@ -714,7 +851,8 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
           <div className="max-h-[60vh] overflow-y-auto pr-1">
             <div className="grid grid-cols-2 gap-3">
               {history.map(item => {
-                const progress = stageProgressLabel(item.stages);
+                const itemScenario = scenarioById(item.scenario);
+                const progress = stageProgressLabel(item, itemScenario);
                 return (
                 <div key={item.id} className="relative group">
                   <div
@@ -727,6 +865,11 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
                         {item.idea}
                       </div>
                       <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        {itemScenario && scenarios.length > 1 && (
+                          <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                            {itemScenario.name}
+                          </span>
+                        )}
                         {item.style && (
                           <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
                             {item.style}
@@ -735,7 +878,7 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
                         <span className="text-[10px] text-gray-400">{item.date}</span>
                       </div>
                       <div className={`flex items-center gap-1 mt-1.5 text-[10px] font-medium ${progress.color}`}>
-                        {item.stages && Object.keys(item.stages).filter(k => ["completed", "session_completed"].includes(item.stages![k])).length >= STAGES.length ? (
+                        {isSessionDone(item) ? (
                           <CheckCircle className="w-3 h-3" />
                         ) : (
                           <span className="w-1.5 h-1.5 rounded-full bg-current flex-shrink-0" />

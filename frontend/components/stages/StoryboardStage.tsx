@@ -48,6 +48,7 @@ const SHOT_TYPE_DECOR = {
 // ─── 主组件 ───
 
 export default function StoryboardStage({ 
+  stage,
   state, 
   onConfirm, 
   onIntervene, 
@@ -181,7 +182,7 @@ export default function StoryboardStage({
         {/* 标题栏 */}
         <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4 mb-6">
           <div className="flex min-w-0 flex-col">
-            <h2 className="text-lg font-semibold text-gray-800">分镜设计</h2>
+            <h2 className="text-lg font-semibold text-gray-800">{stage?.name || '分镜设计'}</h2>
             <p className="text-sm text-gray-500">
               生成分段分镜脚本 (景别·时长·叙事内容) 以及指导性的视觉流转设计
             </p>

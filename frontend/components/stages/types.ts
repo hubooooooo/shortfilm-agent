@@ -1,3 +1,5 @@
+import type { StageDef } from '@/lib/workflowApi';
+
 export type StageStatus = 'pending' | 'running' | 'waiting' | 'completed' | 'error' | 'stopped';
 
 export interface StageState {
@@ -9,6 +11,8 @@ export interface StageState {
 }
 
 export interface StageViewProps {
+  /** 当前阶段在场景中的定义（名称可能被场景改写，如「海报生成」） */
+  stage?: StageDef;
   state: StageState;
   sessionId: string;
   onConfirm: () => void;

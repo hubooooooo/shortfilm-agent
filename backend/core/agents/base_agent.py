@@ -5,7 +5,9 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Dict, Callable
+from typing import Any, Optional, Dict, Callable, List
+
+from prompts.loader import find_prompt_file, load_prompt_with_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,15 @@ class AgentInterface(ABC):
         self.name = name
         self.cancellation_check: Optional[Callable] = None
         self.progress_callback: Optional[Callable] = None
+        # 编排器在执行前注入：当前场景包的提示词目录（优先于默认 prompts/）和场景信息
+        self.prompt_dirs: List[str] = []
+        self.scenario: Dict[str, Any] = {}
+        # 当前阶段在 scenario.yaml 中声明的 options，供 Agent 读取场景级参数
+        self.stage_options: Dict[str, Any] = {}
+
+    def _prompt(self, category: str, name: str, lang: str = "zh", fallback_lang: str = "zh") -> str:
+        """加载提示词：先找当前场景包的 prompts/，再回退到默认 prompts/。"""
+        return load_prompt_with_fallback(category, name, lang, fallback_lang, self.prompt_dirs)
 
     def _merge_session_params(self, input_data: Any) -> Dict:
         """从编排器注入的 session 快照补齐缺失参数。"""
@@ -81,14 +92,13 @@ class AgentInterface(ABC):
         return result
 
     def _get_style_prompt(self, style_name: str) -> str:
-        """从 prompts/style/{style_name}.txt 读取对应的视觉提示词"""
-        import os
-        style_file = os.path.join('prompts', 'style', f"{style_name}.txt")
-        if os.path.exists(style_file):
-            with open(style_file, 'r', encoding='utf-8') as f:
+        """读取 prompts/style/{style_name}.txt 中的视觉风格提示词（场景包可覆盖或新增风格）"""
+        path = find_prompt_file("style", style_name, search_dirs=self.prompt_dirs) if style_name else None
+        if path:
+            with open(path, 'r', encoding='utf-8') as f:
                 return f.read().strip()
         # Fallback to English style name if file doesn't exist
-        return style_name + " style"
+        return f"{style_name} style"
 
     # -------- 抽象方法 --------
 

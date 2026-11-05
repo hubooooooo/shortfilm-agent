@@ -16,11 +16,86 @@ export interface StageInfo {
   description: string;
 }
 
+/** 场景包中的一个阶段（内置阶段 type 与 id 相同；自定义阶段 type 为 "custom"） */
+export interface StageDef {
+  id: string;
+  type: string;
+  name: string;
+  short_name: string;
+  description: string;
+  custom: boolean;
+  /** 传给阶段 agent 的参数；UI 不使用 */
+  options?: Record<string, unknown>;
+}
+
+export interface ScenarioExample {
+  title: string;
+  description?: string;
+  idea: string;
+  image?: string;
+}
+
+export interface ScenarioDefaults {
+  style?: string;
+  video_ratio?: string;
+  video_resolution?: string;
+  video_generation_mode?: string;
+  episodes?: number;
+  expand_idea?: boolean;
+}
+
+export interface ScenarioUi {
+  hero_title?: string;
+  hero_subtitle?: string;
+  placeholder?: string;
+  episodes_label?: string;
+  examples?: ScenarioExample[];
+}
+
+export interface Scenario {
+  id: string;
+  name: string;
+  tagline: string;
+  description: string;
+  category: 'video' | 'image' | string;
+  order: number;
+  stages: StageDef[];
+  defaults: ScenarioDefaults;
+  /** 场景自带的额外画风，追加在内置 STYLES 之后 */
+  styles?: { id: string; label: string }[];
+  ui: ScenarioUi;
+  requires_video_model: boolean;
+}
+
+export interface ScenarioList {
+  default: string;
+  scenarios: Scenario[];
+  errors: Record<string, string>;
+}
+
 export interface ProjectStatus {
   session_id: string;
   current_stage: string;
   status: Record<string, string>;
   error: string | null;
+  scenario?: string;
+  stages?: StageDef[];
+}
+
+/**
+ * 从状态快照中解析会话的阶段列表。
+ * 优先使用后端返回的 stages；缺失时（旧版后端）按 status 的键顺序兜底。
+ */
+export function resolveSessionStages(snapshot: { stages?: StageDef[]; status?: Record<string, string> } | null | undefined, fallback: StageDef[] = []): StageDef[] {
+  if (Array.isArray(snapshot?.stages) && snapshot.stages.length > 0) return snapshot.stages;
+  if (fallback.length > 0) return fallback;
+  const keys = Object.keys(snapshot?.status || {});
+  return keys.map(id => ({ id, type: id, name: id, short_name: id, description: '', custom: false }));
+}
+
+/** 自定义阶段使用通用渲染组件；内置阶段按 type 选择专用组件 */
+export function isCustomStage(stage?: StageDef | null): boolean {
+  return !!stage && (stage.custom || stage.type === 'custom');
 }
 
 export interface StreamEvent {
@@ -126,6 +201,17 @@ export async function fetchStages(): Promise<StageInfo[]> {
   await requireOkResponse(resp, '获取工作流阶段失败');
   const data = await resp.json();
   return data.stages;
+}
+
+export async function fetchScenarios(): Promise<ScenarioList> {
+  const resp = await fetch('/api/scenarios');
+  await requireOkResponse(resp, '获取场景列表失败');
+  const data = await resp.json();
+  return {
+    default: data.default || '',
+    scenarios: Array.isArray(data.scenarios) ? data.scenarios : [],
+    errors: data.errors || {},
+  };
 }
 
 export async function fetchSessions(): Promise<any[]> {
@@ -274,7 +360,16 @@ export function subscribePipelineTask(
   return () => source.close();
 }
 
+export interface StartProjectResponse {
+  session_id: string;
+  status: Record<string, string>;
+  params: Record<string, unknown>;
+  scenario?: string;
+  stages?: StageDef[];
+}
+
 export async function startProject(params: {
+  scenario?: string;
   idea: string;
   file_path?: string;
   style?: string;
@@ -294,7 +389,7 @@ export async function startProject(params: {
   web_search?: boolean;
   expand_idea?: boolean;
   episodes?: number;
-}): Promise<{ session_id: string; status: string; params: any }> {
+}): Promise<StartProjectResponse> {
   const resp = await fetch('/api/project/start', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

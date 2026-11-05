@@ -1,6 +1,11 @@
 # Session 数据格式
 
-Session 数据存储在 `code/data/sessions/{session_id}.json`，包含完整的项目会话信息。
+Session 数据存储在 `backend/code/data/sessions/{session_id}.json`，包含完整的项目会话信息。
+
+> **当前格式要点**
+> - 生成参数（`idea`、`style`、`episodes`、各模型字段等）保存在 `meta` 对象中；下表中这些“根级字段”是旧版本格式，读取时仍兼容。
+> - `meta.scenario` 是项目所属场景包 id（见 [scenarios.md](scenarios.md)）。旧会话没有这个字段，按默认场景加载。
+> - `status` 是对象：`{阶段 id: pending | running | waiting | completed | stopped | error}`，只包含该场景的阶段；`artifacts` 以阶段 id 为键。
 
 ## 根级字段
 

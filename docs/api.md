@@ -1,8 +1,8 @@
-# MovieAssistant API 文档
+# HTTP API 文档
 
 ## 概述
 
-MovieAssistant 是一个 AI 视频生成系统，提供 REST API 供外部调用。API 与前端共享同一个历史数据库，支持在 API 和前端之间无缝切换。
+本项目后端提供 REST API 供前端和外部 Agent 调用。API 与前端共享同一个历史数据库，支持在 API 和前端之间无缝切换。
 
 **基础 URL**: `http://localhost:8000`
 
@@ -14,9 +14,13 @@ MovieAssistant 是一个 AI 视频生成系统，提供 REST API 供外部调用
 
 ---
 
-## 可用阶段
+## 场景与阶段
 
-| 阶段 ID | 名称 | 说明 |
+每个项目属于一个**场景包**，场景决定这个项目有哪些阶段、按什么顺序执行（见 [scenarios.md](scenarios.md)）。用 `GET /api/scenarios` 获取场景列表和每个场景的阶段；项目状态接口也会返回该项目的 `stages`。
+
+内置阶段类型：
+
+| 阶段 ID | 默认名称 | 说明 |
 |---------|------|------|
 | `script_generation` | 剧本生成 | 将灵感转化为结构化剧本 |
 | `character_design` | 角色/场景设计 | 生成角色设计图和场景背景 |
@@ -24,6 +28,8 @@ MovieAssistant 是一个 AI 视频生成系统，提供 REST API 供外部调用
 | `reference_generation` | 参考图生成 | 生成高精度参考图 |
 | `video_generation` | 视频生成 | 将参考图/分镜图生成视频 |
 | `post_production` | 后期剪辑 | 拼接视频片段为最终成片 |
+
+场景可以只使用其中一部分（例如商品海报只到 `reference_generation`），可以改名，也可以加入自定义阶段。执行不属于该项目场景的阶段会返回 400。
 
 ---
 
@@ -39,6 +45,7 @@ MovieAssistant 是一个 AI 视频生成系统，提供 REST API 供外部调用
 ```json
 {
   "idea": "故事线描述",
+  "scenario": "short_film",
   "style": "anime",
   "episodes": 4,
   "llm_model": "deepseek-v3.2",
@@ -54,19 +61,22 @@ MovieAssistant 是一个 AI 视频生成系统，提供 REST API 供外部调用
 | 参数 | 类型 | 必填 | 说明 | 默认值 |
 |------|------|------|------|--------|
 | idea | string | 是 | 故事线描述 | - |
+| scenario | string | 否 | 场景包 id，见 `GET /api/scenarios` | `workflow.default_scenario` |
 | style | string | 否 | 视频风格 | anime |
 | episodes | int | 否 | 生成的剧集数量 | 4 |
 | llm_model | string | 是 | LLM 模型；前端从 `backend/config.yaml` 读取默认值并传递 | - |
 | vlm_model | string | 是 | VLM 评估模型；前端从 `backend/config.yaml` 读取默认值并传递 | - |
 | image_t2i_model | string | 是 | 文生图模型；前端从 `backend/config.yaml` 读取默认值并传递 | - |
 | image_it2i_model | string | 是 | 图生图模型；前端从 `backend/config.yaml` 读取默认值并传递 | - |
-| video_model | string | 是 | 视频模型；前端从 `backend/config.yaml` 读取默认值并传递 | - |
+| video_model | string | 场景含视频阶段时必填 | 视频模型；前端从 `backend/config.yaml` 读取默认值并传递 | - |
 | enable_concurrency | bool | 否 | 开启并发生成（可同时生成多张图片/视频） | true |
 
 **响应示例**:
 ```json
 {
   "session_id": "1773208355389",
+  "scenario": "short_film",
+  "stages": [{"id": "script_generation", "type": "script_generation", "name": "剧本生成", "short_name": "剧本", "custom": false}],
   "status": "stage_completed",
   "params": {
     "idea": "故事线描述",
@@ -316,9 +326,40 @@ MovieAssistant 是一个 AI 视频生成系统，提供 REST API 供外部调用
 
 ---
 
-### 10. 获取阶段列表
+### 10. 获取场景列表
 
-获取所有可用阶段列表。
+**接口**: `GET /api/scenarios`
+
+返回所有场景包及其阶段、默认参数和首页文案；`errors` 列出声明有误、被跳过的场景包。修改场景包后可调用 `POST /api/scenarios/reload` 重新加载，单个场景用 `GET /api/scenarios/{id}`。
+
+**响应示例**:
+```json
+{
+  "default": "short_film",
+  "scenarios": [
+    {
+      "id": "product_poster",
+      "name": "商品海报",
+      "category": "image",
+      "requires_video_model": false,
+      "defaults": {"video_ratio": "3:4", "episodes": 1},
+      "stages": [
+        {"id": "script_generation", "type": "script_generation", "name": "海报文案", "short_name": "文案", "custom": false, "options": {"max_episode_lines": 12}},
+        {"id": "reference_generation", "type": "reference_generation", "name": "海报生成", "short_name": "海报", "custom": false, "options": {}}
+      ],
+      "ui": {"hero_title": "写下卖点，生成一组商品海报", "examples": []},
+      "styles": []
+    }
+  ],
+  "errors": {}
+}
+```
+
+---
+
+### 11. 获取内置阶段类型
+
+获取内置阶段类型列表（与场景无关）。
 
 **接口**: `GET /api/stages`
 

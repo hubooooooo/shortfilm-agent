@@ -1,7 +1,7 @@
 <h1 align="center">ShortFilm Agent</h1>
 
 <p align="center">
-  <b>AI 短片创作 Agent 项目底座：从一句创意到一部成片</b>
+  <b>AIGC 内容生产 Agent 底座：一套流程引擎，适配不同行业的图像 / 视频生成产品</b>
 </p>
 
 <p align="center">
@@ -9,64 +9,37 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.10+-purple.svg" alt="Python">
-  <img src="https://img.shields.io/badge/Node.js-18+-green.svg" alt="Node">
+  <img src="https://img.shields.io/badge/Python-3.10+-black.svg" alt="Python">
+  <img src="https://img.shields.io/badge/Node.js-18+-black.svg" alt="Node">
   <img src="https://img.shields.io/badge/License-MIT-black.svg" alt="License">
 </p>
 
 ---
 
-## 项目介绍
+## 这是什么
 
-ShortFilm Agent 是一个可二次开发的 AI 短片 / 短剧创作 Agent 底座。用户给出一句想法、一段梗概或一个模糊概念，系统把它拆成一条可执行的影视生产流水线，每个阶段都产出**可查看、可确认、可修改、可继续生成**的中间资产，最终交付完整成片：
+ShortFilm Agent 是一个**可二次开发的 AIGC 项目底座**。用户输入一句需求，系统把它拆成一条多阶段的生产流水线（文案/剧本 → 角色与场景设定 → 分镜 → 画面 → 视频 → 成片）。每个阶段的产出都可以**查看、确认、修改、单项重新生成**，人始终在回路里。
 
-```
-剧本策划 → 角色/场景设计 → 分镜规划 → 参考图生成 → 视频生成 → 后期剪辑
-```
+底座的核心是**场景包**：一个文件夹就是一个行业场景。它声明这个场景有哪些阶段、默认参数、首页文案，以及专属提示词。同一套引擎，换一个场景包就是另一个产品：
 
-它被设计成"底座"而不是成品：品牌、模型、模型服务商、阶段 Agent 都可以通过配置替换，不需要改动核心代码。
+| 内置场景 | 输入 | 产出 | 阶段 |
+| --- | --- | --- | --- |
+| **AI 短片** | 一句故事灵感 | 多集剧情短片 | 6 |
+| **电商广告片** | 商品与卖点 | 30-45 秒竖屏带货视频 | 6 |
+| **漫剧** | 世界观与主角设定 | 竖屏多集漫画短剧 | 6 |
+| **旅游宣传片** | 目的地与宣传重点 | 45-60 秒宣传片 | 6 |
+| **商品海报** | 商品与卖点 | 一组 3-4 张电商海报（纯图像） | 4 |
 
-| 能力 | 说明 |
-| --- | --- |
-| 全流程生成 | 一条链路打通剧本、角色、分镜、参考图、视频片段与后期剪辑 |
-| 人在回路 | 每个阶段完成后等待确认，支持修改、续写、单项重新生成 |
-| 多模型可插拔 | LLM / VLM / 图像 / 视频各环节可在通义、火山方舟、可灵、OpenAI、Gemini、DeepSeek 及任意 OpenAI 兼容接口之间切换 |
-| 配置驱动扩展 | 新增模型只需写 YAML；替换某阶段的 Agent 只需在配置里指向自己的类 |
-| 一键流水线 | 标准短视频、数字人、动作迁移等无需逐阶段确认的快捷流程 |
-| 多种部署方式 | 本地脚本一键安装 / `scripts/dev.sh` 一键启动 / Docker Compose |
+新增一个场景通常**不需要写代码**：复制一个场景包，改 YAML 和提示词即可。需要更复杂的逻辑时，可以给场景加自定义阶段 Agent。
 
-视频生成阶段支持三种方式：**首帧生视频**（默认，最稳定）、**首尾帧生视频**（衔接更强）、**参考图生视频**（角色/场景一致性更强）。
+## 写给 AI 产品经理同学
 
----
+这个项目是为“基于底座做行业 AIGC 产品”的课程准备的。建议这样使用：
 
-## 目录结构
-
-```text
-.
-├── backend/                  # Python FastAPI 后端
-│   ├── api/                  #   HTTP 层：routers/ 路由、schemas/ 请求模型、services/
-│   ├── core/
-│   │   ├── stages.py         #   阶段注册表：阶段顺序、名称、默认 Agent、Agent 替换
-│   │   ├── orchestrator.py   #   工作流引擎：状态机、会话持久化、跨阶段同步
-│   │   └── agents/           #   6 个阶段 Agent（继承 AgentInterface）
-│   ├── models/               #   模型服务商客户端 + 统一门面（llm/vlm/image/video_client.py）
-│   ├── registry/models.yaml  #   模型注册表（服务商、类型、并发、能力）
-│   ├── pipelines/            #   一键流水线
-│   ├── prompts/              #   提示词模板
-│   ├── templates/            #   HTML 视频模板
-│   ├── config.py             #   配置加载：默认值 → config.yaml → SFA_* 环境变量
-│   └── config.yaml.example
-├── frontend/                 # Next.js 前端（品牌配置在 config/brand.ts）
-├── docs/                     # 架构、配置、扩展、API、会话格式文档
-├── integrations/agent-skill/ # 可选：供外部 Agent（OpenClaw 等）调用的 Skill，含飞书/微信推送说明
-├── scripts/                  # install.sh / install.bat / dev.sh
-├── docker-compose.yml
-└── .env.example
-```
-
-架构说明见 [docs/architecture.md](docs/architecture.md)。
-
----
+1. **先跑起来**，用 5 个内置场景各生成一次，感受多阶段 + 人在回路的产品形态。
+2. **读 [示例场景拆解](docs/examples.md)**，看同一套引擎怎样通过阶段组合和提示词变成不同产品。
+3. **跟着 [30 分钟做出你的第一个场景](docs/tutorial-first-scenario.md)**，为你的目标行业（电商、旅游、教育、房产、餐饮……）做一个场景包。
+4. **用 AI 编程工具迭代**：项目附带 [CLAUDE.md](CLAUDE.md) / [AGENTS.md](AGENTS.md)，Claude Code、Cursor 等工具读完就知道该改哪里。你的主要工作是**定义场景、写好提示词、验收效果**。
 
 ## 快速开始
 
@@ -74,56 +47,77 @@ ShortFilm Agent 是一个可二次开发的 AI 短片 / 短剧创作 Agent 底�
 
 - Python 3.10+（推荐 3.12，用 [uv](https://docs.astral.sh/uv/) 管理）
 - Node.js 18+ / npm 9+
-- ffmpeg（拼接视频片段、音视频后处理）
+- ffmpeg（拼接视频片段）
+- 至少一家模型服务商的 API Key（默认配置使用阿里云百炼 DashScope 和火山方舟 Ark）
 
-### 方式一：一键安装
+### 一键安装与启动
 
 ```bash
 ./scripts/install.sh          # Windows: scripts\install.bat
 ./scripts/dev.sh              # 同时启动后端 :8000 和前端 :3000，Ctrl+C 一起停止
 ```
 
-安装脚本会检查依赖、安装前后端依赖、构建前端，并把 `backend/config.yaml.example` 复制为 `backend/config.yaml`。设置 `SFA_SKIP_FRONTEND_BUILD=1` 可跳过前端构建。
+打开 http://localhost:3000 ，在「设置」页填写 API Key，回到首页选择场景、输入需求即可开始。
 
-### 方式二：手动
+### 手动启动
 
 ```bash
 # 后端
 cd backend
 uv sync --python 3.12
-cp config.yaml.example config.yaml     # 填入 API Key
+cp config.yaml.example config.yaml     # 也可以在前端「设置」页填写 API Key
 uv run python api_server.py            # http://localhost:8000
 
 # 前端（新终端）
 cd frontend
 npm install
-npm run dev                            # http://localhost:3000；生产模式 npm run build && npm start
+npm run dev                            # http://localhost:3000
 ```
 
-### 方式三：Docker Compose
+### Docker Compose
 
 ```bash
 cp .env.example .env                   # 填入 SFA_*_API_KEY
 docker compose up --build
 ```
 
-会话和生成产物保存在 `./data/code`，设置页保存的配置在 `./data/config`。
+## 目录结构
 
-打开 http://localhost:3000，在输入框写下创意即可开始。API Key 和默认模型也可以在前端「设置」页面填写。
+```text
+.
+├── backend/                     # Python FastAPI 后端
+│   ├── scenarios/               #   ★ 场景包：每个子目录是一个场景（scenario.yaml + prompts/ + agents.py）
+│   ├── core/
+│   │   ├── scenarios.py         #   场景包加载与校验
+│   │   ├── stages.py            #   6 种内置阶段类型
+│   │   ├── orchestrator.py      #   工作流引擎：按场景的阶段列表驱动状态机
+│   │   └── agents/              #   内置阶段 Agent
+│   ├── prompts/                 #   默认提示词（场景包可按文件覆盖）
+│   ├── models/                  #   模型服务商客户端 + 统一门面
+│   ├── registry/models.yaml     #   模型注册表
+│   └── config.py                #   配置：默认值 → config.yaml → SFA_* 环境变量
+├── frontend/                    # Next.js 前端（首页场景选择、阶段工作台、设置页）
+├── docs/                        # 文档
+├── scripts/                     # install / dev / new-scenario 脚本
+└── integrations/agent-skill/    # 可选：供外部 Agent（OpenClaw 等）调用的 Skill
+```
 
----
+## 文档
 
-## 配置
+| 文档 | 内容 |
+| --- | --- |
+| [30 分钟做出你的第一个场景](docs/tutorial-first-scenario.md) | 手把手教程 |
+| [示例场景拆解](docs/examples.md) | 5 个内置场景的设计思路 |
+| [场景包参考](docs/scenarios.md) | scenario.yaml 字段、提示词覆盖、自定义 Agent |
+| [二次开发指南](docs/extending.md) | 换品牌、加模型、加服务商、替换 Agent |
+| [架构](docs/architecture.md) | 分层、数据流、状态机 |
+| [配置](docs/configuration.md) | 配置文件与环境变量 |
+| [HTTP API](docs/api.md) | 接口说明 |
+| [贡献指南](CONTRIBUTING.md) | 开发约定与提交流程 |
 
-配置按三层合并，后者覆盖前者：
+## 模型与配置
 
-1. `backend/config.py` 中的默认值
-2. `backend/config.yaml`（可用 `SFA_CONFIG` 指定其他路径；前端设置页写入的就是这个文件）
-3. `SFA_*` 环境变量：只在运行时生效，**不会**写回 `config.yaml`，适合 Docker / CI 注入密钥
-
-常用环境变量：`SFA_DASHSCOPE_API_KEY`、`SFA_ARK_API_KEY`、`SFA_KLING_ACCESS_KEY`、`SFA_OPENAI_API_KEY`、`SFA_MODEL_LLM`、`SFA_PORT`、`SFA_CORS_ORIGINS`。完整列表见 [docs/configuration.md](docs/configuration.md) 和 [.env.example](.env.example)。
-
-只需填写实际选用模型对应的服务商密钥。默认配置下，图像模型 `doubao-seedream-*` 需要 `ark.api_key`，视频与文本模型 `wan*` / `qwen*` 需要 `dashscope.api_key`。
+LLM / VLM / 图像 / 视频各环节的模型可以在通义、火山方舟、可灵、OpenAI、Gemini、DeepSeek，以及任意 OpenAI 兼容接口之间切换。只需要填写实际选用模型对应的服务商密钥：
 
 | 服务商 | 配置字段 | 常用用途 |
 | :--- | :--- | :--- |
@@ -133,53 +127,25 @@ docker compose up --build
 | OpenAI | `openai.api_key` | GPT 文本/视觉、OpenAI 图像 |
 | Gemini | `gemini.api_key` | Gemini 文本/视觉 |
 | DeepSeek | `deepseek.api_key` | DeepSeek 文本 |
-| OpenAI 兼容接口 | `openai_compatible.api_key` / `base_url` | vLLM、Ollama、OpenRouter 等自建或第三方文本/视觉模型 |
+| OpenAI 兼容接口 | `openai_compatible.api_key` / `base_url` | vLLM、Ollama、OpenRouter 等 |
 
----
+配置按三层合并：`backend/config.py` 默认值 → `backend/config.yaml`（「设置」页写入的就是它）→ `SFA_*` 环境变量（只在运行时生效，不写回文件）。详见 [docs/configuration.md](docs/configuration.md)。
 
-## 二次开发
-
-[docs/extending.md](docs/extending.md) 逐步说明了以下扩展方式：
-
-- **换品牌**：后端 `app.name`，前端 `NEXT_PUBLIC_APP_NAME`
-- **加模型**：在 `backend/registry/models.local.yaml` 或 `config.yaml` 的 `custom_models` 中声明，无需改代码
-- **接入 OpenAI 兼容模型**：配置 `openai_compatible`，再以 `provider: openai_compatible` 注册模型
-- **加服务商**：在 `config.py` 的 `PROVIDERS` 中声明字段，实现客户端，在对应门面中路由
-- **替换阶段 Agent**：在 `config.yaml` 的 `workflow.agents` 中填写 `模块:类名`
-
-HTTP 接口见 [docs/api.md](docs/api.md)，会话文件格式见 [docs/session_format.md](docs/session_format.md)。
-
----
-
-## 产物
-
-所有会话元数据与生成产物保存在 `backend/code/`（通过 `/code/*` 静态访问）：
-
-```text
-backend/code/
-├── data/sessions/        # 会话元数据 (JSON)
-├── data/tasks/           # 一键流水线任务
-└── result/
-    ├── image/<session>/  # 角色/场景素材 + 分镜参考图
-    ├── video/<session>/  # 视频片段与成片
-    └── script/           # 剧本/分镜数据
-```
-
----
+> `backend/config.yaml` 和 `.env` 已被 git 忽略。**不要把 API Key 提交到仓库。**
 
 ## 测试
 
 ```bash
-cd backend && uv run --extra dev pytest
-cd frontend && npm run lint && npm run build
+cd backend && uv run --extra dev pytest      # 含场景包格式检查
+cd frontend && npx tsc --noEmit && npm run build
 ```
 
 ## 路线图
 
-- [ ] 角色级 Agent 互评（编剧 / 导演 / 连贯性审查各自带循环与记忆，互相 review）
-- [ ] 独立的跨镜头连贯性 Agent（人物 / 场景一致性审查，可打回重做）
-- [ ] 并发分镜 Agent + 汇总（多镜头并行生成）
-- [ ] 阶段级插件：在注册表中增删阶段，而不只是替换 Agent
+- [ ] 更多场景包：知识科普、房产展示、餐饮探店
+- [ ] 内置阶段组件读取场景的 options，支持更多无代码配置
+- [ ] 跨镜头连贯性审查 Agent
+- [ ] 多镜头并行生成
 
 ## License
 

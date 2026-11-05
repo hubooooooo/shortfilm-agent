@@ -67,8 +67,11 @@ generation:
   video_generation_mode: first_frame   # first_frame | start_end | reference
 
 workflow:
-  # Replace the agent of a stage with your own AgentInterface subclass:
+  # Scenario used when a project does not pick one: a folder name under backend/scenarios/.
+  default_scenario: short_film
+  # Replace the agent of a built-in stage in every scenario with your own AgentInterface subclass:
   #   script_generation: my_plugins.script:MyScriptAgent
+  # To change a single scenario, set `agent:` on that stage in its scenario.yaml instead.
   agents: {}
 
 # Extra models, same format as registry/models.yaml. Example:

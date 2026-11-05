@@ -1,5 +1,19 @@
 # 二次开发指南
 
+按改动从小到大排列。大多数领域适配只需要第一节：新增一个场景包。
+
+## 新增场景（最常用）
+
+把底座改成某个领域的 AIGC 产品（电商广告、漫剧、旅游宣传、海报……），只需在 `backend/scenarios/` 下新增一个场景包：声明阶段组成、默认参数、首页文案，再覆盖几个领域相关的提示词。不需要改 Python 或前端代码。
+
+```bash
+python3 scripts/new-scenario.py my_scenario --from ecommerce_ad --name 我的场景
+```
+
+- 字段与规则：[scenarios.md](scenarios.md)
+- 手把手教程：[30 分钟做出你的第一个场景](tutorial-first-scenario.md)
+- 内置示例的设计思路：[examples.md](examples.md)
+
 ## 换品牌
 
 - 后端：`config.yaml` 的 `app.name` / `app.tagline`（或 `SFA_APP_NAME`），影响 API 标题和 HTML 视频模板里的品牌文字。
@@ -52,12 +66,23 @@ models:
 4. 在注册表中以 `provider: myvendor` 注册模型。
 5. 如需在设置页编辑，在 `frontend/app/settings/page.tsx` 的 `GROUPS` 中添加字段。
 
-## 替换阶段 Agent
+## 替换或新增阶段 Agent
 
-每个阶段的 Agent 都可以换成自己的实现，而不修改编排器：
+提示词做不到的逻辑，可以用自己的 Agent 实现：
+
+- **只在某个场景里替换内置阶段**：在该场景 `scenario.yaml` 的阶段上写 `agent: scenarios.<场景 id>.agents:MyAgent`。
+- **新增一个自定义阶段**：在 `stages` 中加入 `{id: my_stage, name: ..., agent: ...}`，前端会用通用视图展示产物。
+- **所有场景统一替换**：在 `config.yaml` 中设置 `workflow.agents`：
+
+```yaml
+workflow:
+  agents:
+    script_generation: my_plugins.script:MyScriptAgent
+```
+
+替换内置阶段时，最稳妥的做法是继承原 Agent，并保持产物（payload）结构不变，因为编排器的跨阶段同步和前端都依赖这个结构：
 
 ```python
-# my_plugins/script.py（放在 backend/ 下或已安装到环境中）
 from core.agents.script_agent import ScriptWriterAgent
 
 class MyScriptAgent(ScriptWriterAgent):
@@ -67,17 +92,11 @@ class MyScriptAgent(ScriptWriterAgent):
         return result
 ```
 
-```yaml
-workflow:
-  agents:
-    script_generation: my_plugins.script:MyScriptAgent
-```
-
-要求：类必须继承 `core.agents.base_agent.AgentInterface`，并返回与原阶段相同结构的 payload（编排器的跨阶段同步依赖这些字段）。最稳妥的做法是继承原 Agent 并在其结果上修改。阶段 id 见 [architecture.md](architecture.md)。
+Agent 必须继承 `core.agents.base_agent.AgentInterface`。可用的辅助方法见 [scenarios.md · 自定义阶段 Agent](scenarios.md#自定义阶段-agent)。
 
 ## 修改提示词
 
-提示词模板在 `backend/prompts/<阶段>/`，`*_zh.txt` / `*_en.txt` 分别对应中英文。风格预设在 `backend/prompts/style/`。
+默认提示词在 `backend/prompts/<阶段>/`，`*_zh.txt` / `*_en.txt` 分别是中文和英文版本，风格预设在 `backend/prompts/style/`。修改默认提示词会影响所有没有覆盖它的场景。只想改一个场景时，把同名文件放到该场景的 `prompts/` 下（见 [scenarios.md · 覆盖提示词](scenarios.md#覆盖提示词)）。
 
 ## 外部 Agent 集成
 

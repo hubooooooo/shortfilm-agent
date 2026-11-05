@@ -344,7 +344,7 @@ function SceneRow({
 }
 
 /* ─── 主组件 ─── */
-export default function ReferenceStage({ state, sessionId, onConfirm, onIntervene, onRegenerate, onUpdateArtifact, onSaveSelections, showConfirm, isRunning, hasPendingItems, hasNextStageStarted, scriptArtifact }: StageViewProps) {
+export default function ReferenceStage({ stage, state, sessionId, onConfirm, onIntervene, onRegenerate, onUpdateArtifact, onSaveSelections, showConfirm, isRunning, hasPendingItems, hasNextStageStarted, scriptArtifact }: StageViewProps) {
   const [editDescs, setEditDescs] = useState<Record<string, string>>({});
   const [selectedVersions, setSelectedVersions] = useState<Record<string, string>>({});
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(new Set());
@@ -551,7 +551,7 @@ export default function ReferenceStage({ state, sessionId, onConfirm, onInterven
       <div className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6">
         {/* 标题栏 */}
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-lg font-semibold text-gray-800">参考图生成</h2>
+          <h2 className="text-lg font-semibold text-gray-800">{stage?.name || '参考图生成'}</h2>
         </div>
         <p className="text-sm text-gray-500 mb-6">
           基于角色/场景素材 + 分镜视觉描述，使用图生图生成场景参考图

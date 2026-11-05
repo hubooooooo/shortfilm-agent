@@ -330,7 +330,7 @@ function AssetRow({
 }
 
 /* ─── 主组件 ─── */
-export default function CharacterStage({ state, sessionId, onConfirm, onIntervene, onRegenerate, onUpdateArtifact, onSaveSelections, showConfirm, isRunning, hasPendingItems, hasNextStageStarted }: StageViewProps) {
+export default function CharacterStage({ stage, state, sessionId, onConfirm, onIntervene, onRegenerate, onUpdateArtifact, onSaveSelections, showConfirm, isRunning, hasPendingItems, hasNextStageStarted }: StageViewProps) {
   const characters: AssetVersion[] = state.artifact?.characters || [];
   const settingsData: AssetVersion[] = state.artifact?.settings || [];
 
@@ -473,7 +473,7 @@ export default function CharacterStage({ state, sessionId, onConfirm, onInterven
       <div className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6">
         {/* 标题栏 */}
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-lg font-semibold text-gray-800">角色 / 场景设计</h2>
+          <h2 className="text-lg font-semibold text-gray-800">{stage?.name || '角色 / 场景设计'}</h2>
         </div>
         <p className="text-sm text-gray-500 mb-6">
           生成角色4视图 (正面特写·正面全身·侧面全身·背面全身) 和场景全景图

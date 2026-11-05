@@ -16,8 +16,9 @@
 | `server` | `host`、`port`、`log_level`、`access_log` |
 | `api_providers` | 各服务商的密钥、接口地址、`enable_proxy`；`common.proxy` 是共用代理地址 |
 | `models` | 主流程默认模型：`llm`、`vlm`、`image_t2i`、`image_it2i`、`video_first_frame`、`video_start_end`、`video_reference` |
-| `generation` | 默认 `style`、`video_ratio`、`video_resolution`、`video_generation_mode`（`first_frame` / `start_end` / `reference`） |
-| `workflow.agents` | 按阶段替换 Agent：`{阶段 id: "模块:类名"}` |
+| `generation` | 全局默认 `style`、`video_ratio`、`video_resolution`、`video_generation_mode`（`first_frame` / `start_end` / `reference`）；场景包的 `defaults` 优先 |
+| `workflow.default_scenario` | 创建项目时未指定场景所用的场景 id，默认 `short_film` |
+| `workflow.agents` | 在所有场景中替换内置阶段的 Agent：`{阶段 id: "模块:类名"}`；只改一个场景请在其 `scenario.yaml` 中写 `agent:` |
 | `custom_models` | 额外注册的模型，格式同 `registry/models.yaml` |
 
 完整示例见 [backend/config.yaml.example](../backend/config.yaml.example)。
@@ -30,6 +31,7 @@
 | `SFA_APP_NAME` / `SFA_APP_TAGLINE` | `app.name` / `app.tagline` |
 | `SFA_HOST` / `SFA_PORT` / `SFA_LOG_LEVEL` | `server.*` |
 | `SFA_PROXY` | `api_providers.common.proxy` |
+| `SFA_DEFAULT_SCENARIO` | `workflow.default_scenario` |
 | `SFA_<服务商>_<字段>` | `api_providers.<服务商>.<字段>`，例如 `SFA_DASHSCOPE_API_KEY`、`SFA_KLING_SECRET_KEY`、`SFA_OPENAI_COMPATIBLE_BASE_URL` |
 | `SFA_MODEL_<键>` | `models.<键>`，例如 `SFA_MODEL_LLM`、`SFA_MODEL_VIDEO_FIRST_FRAME` |
 | `SFA_CORS_ORIGINS` | 额外允许的浏览器来源，逗号分隔（默认已允许 `localhost:3000` / `127.0.0.1:3000`） |

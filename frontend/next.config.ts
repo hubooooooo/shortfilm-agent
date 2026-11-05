@@ -28,6 +28,14 @@ const nextConfig: NextConfig = {
         destination: `${backendApiUrl}/api/stages`,
       },
       {
+        source: '/api/scenarios',
+        destination: `${backendApiUrl}/api/scenarios`,
+      },
+      {
+        source: '/api/scenarios/:path*',
+        destination: `${backendApiUrl}/api/scenarios/:path*`,
+      },
+      {
         source: '/api/upload_media',
         destination: `${backendApiUrl}/api/upload_media`,
       },

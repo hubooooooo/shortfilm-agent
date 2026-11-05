@@ -56,9 +56,14 @@ type RunningTaskItem = {
   progress: number;
 };
 
-const WORKFLOW_STAGE_COUNT = 7;
 const COMPLETED_TASK_DISMISS_KEY = `${brand.storagePrefix}.dismissed-completed-tasks`;
 const SIDEBAR_OPEN_KEY = `${brand.storagePrefix}.sidebar-open`;
+
+/** 会话所属场景的阶段数：优先用 stage_ids，旧数据回退到 status 的键数 */
+function sessionStageCount(session: { stage_ids?: unknown; status?: Record<string, unknown> }): number {
+  if (Array.isArray(session?.stage_ids) && session.stage_ids.length > 0) return session.stage_ids.length;
+  return Math.max(1, Object.keys(session?.status || {}).length);
+}
 
 function projectTaskFromSession(session: any): RunningTaskItem | null {
   const statusMap = session.status || {};
@@ -72,7 +77,7 @@ function projectTaskFromSession(session: any): RunningTaskItem | null {
     title: session.idea || session.id,
     scope: runningStage ? `主流程 · ${runningStage}` : '主流程',
     status: 'running',
-    progress: Math.round((completed / WORKFLOW_STAGE_COUNT) * 100),
+    progress: Math.round((completed / sessionStageCount(session)) * 100),
   };
 }
 
@@ -80,7 +85,7 @@ function projectReviewTaskFromSession(session: any): RunningTaskItem | null {
   const statusMap = session.status || {};
   const waitingStage = Object.keys(statusMap).find(key => statusMap[key] === 'waiting');
   const completed = Object.values(statusMap).filter(value => ['completed', 'session_completed'].includes(String(value))).length;
-  const allDone = completed >= WORKFLOW_STAGE_COUNT || statusMap.completed === 'completed';
+  const allDone = completed >= sessionStageCount(session) || statusMap.completed === 'completed';
   if (!waitingStage && !allDone) return null;
   const targetStage = waitingStage || Object.keys(statusMap).reverse().find(key => ['completed', 'session_completed'].includes(String(statusMap[key]))) || '';
   return {
@@ -89,7 +94,7 @@ function projectReviewTaskFromSession(session: any): RunningTaskItem | null {
     title: session.idea || session.title || session.id,
     scope: waitingStage ? `主流程 · ${waitingStage}` : '主流程',
     status: waitingStage ? 'waiting' : 'completed',
-    progress: waitingStage ? Math.round((completed / WORKFLOW_STAGE_COUNT) * 100) : 100,
+    progress: waitingStage ? Math.round((completed / sessionStageCount(session)) * 100) : 100,
   };
 }
 

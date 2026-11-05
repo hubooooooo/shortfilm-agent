@@ -12,19 +12,9 @@ import {
   type VideoGenerationMode,
 } from '@/config/models';
 import { fetchModelGroupsByType, fetchVideoModelGroupsByAbility } from '@/lib/modelRegistry';
+import type { StageDef } from '@/lib/workflowApi';
 
 export type StageStatus = 'pending' | 'running' | 'waiting' | 'completed' | 'error' | 'stopped';
-
-export const STAGES = [
-  { id: 'script_generation', name: '剧本生成', shortName: '剧本' },
-  { id: 'character_design', name: '角色设计', shortName: '角色' },
-  { id: 'storyboard', name: '分镜设计', shortName: '分镜' },
-  { id: 'reference_generation', name: '参考图', shortName: '参考图' },
-  { id: 'video_generation', name: '视频生成', shortName: '视频' },
-  { id: 'post_production', name: '后期剪辑', shortName: '后期' },
-] as const;
-
-export type StageId = typeof STAGES[number]['id'];
 
 export interface ModelConfig {
   llm_model: string;
@@ -44,6 +34,8 @@ export interface ModelConfig {
 interface TopBarProps {
   /** null = 首页 */
   activeStage: string | null;
+  /** 当前会话所属场景的阶段（按场景顺序） */
+  stages: StageDef[];
   stageStatuses: Record<string, StageStatus>;
   onStageClick: (stageId: string) => void;
   onHomeClick: () => void;
@@ -62,6 +54,8 @@ interface TopBarProps {
   onModelConfigChange?: (config: ModelConfig) => void;
   /** 项目状态（如 running, waiting, completed, stopped, idle, error 等） */
   projectStatus?: string;
+  /** 场景是否包含视频生成阶段（否则隐藏视频相关配置） */
+  showVideoModels?: boolean;
 }
 
 /* ─── 带 Provider 分组的 <select> ─── */
@@ -95,9 +89,11 @@ function ProviderSelect({
 function ModelSelector({
   config,
   onChange,
+  showVideoModels = true,
 }: {
   config: ModelConfig;
   onChange: (config: ModelConfig) => void;
+  showVideoModels?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -216,6 +212,7 @@ function ModelSelector({
             <span className="text-[10px] text-gray-400 font-medium">图生图</span>
             <ProviderSelect value={config.image_it2i_model} providers={i2iProviders} onChange={v => update('image_it2i_model', v)} />
           </label>
+          {showVideoModels && (<>
           <label className="flex flex-col gap-1">
             <span className="text-[10px] text-gray-400 font-medium">视频生成方式</span>
             <select
@@ -232,8 +229,9 @@ function ModelSelector({
             <span className="text-[10px] text-gray-400 font-medium">{activeVideoLabel}模型</span>
             <ProviderSelect value={activeVideoModel} providers={activeVideoProviders} onChange={updateActiveVideoModel} />
           </label>
+          </>)}
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] text-gray-400 font-medium">视频比例</span>
+            <span className="text-[10px] text-gray-400 font-medium">{showVideoModels ? '视频比例' : '画面比例'}</span>
             <div className="flex gap-0.5">
               {VIDEO_RATIOS.map(r => (
                 <button
@@ -269,7 +267,7 @@ function ModelSelector({
             </div>
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] text-gray-400 font-medium">视频分辨率</span>
+            <span className="text-[10px] text-gray-400 font-medium">{showVideoModels ? '视频分辨率' : '分辨率'}</span>
             <select
               value={config.video_resolution}
               onChange={e => update('video_resolution', e.target.value)}
@@ -297,6 +295,7 @@ function ModelSelector({
 
 export default function TopBar({
   activeStage,
+  stages,
   stageStatuses,
   onStageClick,
   onHomeClick,
@@ -308,6 +307,7 @@ export default function TopBar({
   modelConfig,
   onModelConfigChange,
   projectStatus,
+  showVideoModels = true,
 }: TopBarProps) {
   const getStageIcon = (status: StageStatus, isActive: boolean) => {
     switch (status) {
@@ -356,7 +356,7 @@ export default function TopBar({
       {/* 阶段进度条 */}
       {hasSession && (
         <nav className="flex items-center gap-1 overflow-x-auto flex-1 min-w-0">
-          {STAGES.map((stage, idx) => {
+          {stages.map((stage, idx) => {
             const status = stageStatuses[stage.id] || 'pending';
             const isActive = activeStage === stage.id;
 
@@ -366,7 +366,7 @@ export default function TopBar({
                   <div
                     className={clsx(
                       'w-6 h-px flex-shrink-0',
-                      stageStatuses[STAGES[idx - 1].id] === 'completed'
+                      stageStatuses[stages[idx - 1].id] === 'completed'
                         ? 'bg-green-300'
                         : 'bg-gray-200'
                     )}
@@ -374,6 +374,7 @@ export default function TopBar({
                 )}
                 <button
                   onClick={() => onStageClick(stage.id)}
+                  title={stage.description ? `${stage.name}：${stage.description}` : stage.name}
                   className={clsx(
                     'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex-shrink-0',
                     isActive
@@ -386,7 +387,7 @@ export default function TopBar({
                   )}
                 >
                   {getStageIcon(status, isActive)}
-                  <span>{stage.shortName}</span>
+                  <span>{stage.short_name || stage.name || stage.id}</span>
                 </button>
               </React.Fragment>
             );
@@ -398,7 +399,7 @@ export default function TopBar({
       <div className="ml-auto flex min-w-0 items-center justify-end gap-2 flex-shrink-0">
         {/* 模型选择 */}
         {hasSession && modelConfig && onModelConfigChange && (
-          <ModelSelector config={modelConfig} onChange={onModelConfigChange} />
+          <ModelSelector config={modelConfig} onChange={onModelConfigChange} showVideoModels={showVideoModels} />
         )}
 
         {/* 代理模式切换 */}

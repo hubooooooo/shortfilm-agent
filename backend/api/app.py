@@ -31,6 +31,7 @@ from api.routers import (
     sandbox_router,
     sessions_router,
     stages_router,
+    scenarios_router,
     workflow_router,
 )
 
@@ -84,6 +85,7 @@ app.include_router(files_router)
 app.include_router(workflow_router)
 app.include_router(sessions_router)
 app.include_router(stages_router)
+app.include_router(scenarios_router)
 app.include_router(sandbox_router)
 app.include_router(pipelines_router)
 app.include_router(configuration_router)

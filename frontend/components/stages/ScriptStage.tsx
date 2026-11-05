@@ -112,7 +112,7 @@ function LoglineSummaryBar({ logline }: { logline: LoglineData }) {
   );
 }
 
-export default function ScriptStage({ state, onConfirm, onIntervene, onRegenerate, onSaveSelections, showConfirm, isRunning, hasPendingItems, hasNextStageStarted }: StageViewProps) {
+export default function ScriptStage({ stage, state, onConfirm, onIntervene, onRegenerate, onSaveSelections, showConfirm, isRunning, hasPendingItems, hasNextStageStarted }: StageViewProps) {
   const data: ScriptData = state.artifact || {};
 
   const isLoglinePhase = data.phase === 'logline_selection' || data.phase === 'logline_confirm' || data.phase === 'mode_selection';
@@ -198,7 +198,7 @@ export default function ScriptStage({ state, onConfirm, onIntervene, onRegenerat
 
         {/* 标题栏 */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
-          <h2 className="text-lg font-semibold text-gray-800">剧本生成</h2>
+          <h2 className="text-lg font-semibold text-gray-800">{stage?.name || '剧本生成'}</h2>
           {isEditing && (
             <div className="flex gap-1 bg-gray-100 rounded-lg p-1 text-xs">
               <button onClick={() => switchEditMode('structured')}

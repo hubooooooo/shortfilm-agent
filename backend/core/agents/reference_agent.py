@@ -17,7 +17,6 @@ from typing import Any, Optional, Dict, List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .base_agent import AgentInterface
-from prompts.loader import load_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -384,7 +383,7 @@ class ReferenceGeneratorAgent(AgentInterface):
         segment_id = segment.get('segment_id', '')
 
         # 加载评估提示词
-        select_prompt = load_prompt('reference', 'eval_select_best', 'zh').format(
+        select_prompt = self._prompt('reference', 'eval_select_best', 'zh').format(
             num_images=len(image_paths),
             num_images_minus_1=len(image_paths) - 1,
             plot=plot,
@@ -442,7 +441,7 @@ class ReferenceGeneratorAgent(AgentInterface):
             from models.vlm_client import VLM
             vlm = VLM()
 
-            eval_prompt = load_prompt('reference', 'eval_first_frame', 'zh').format(
+            eval_prompt = self._prompt('reference', 'eval_first_frame', 'zh').format(
                 plot=plot,
                 visual_prompt=visual_prompt,
                 character_description=character_description,
@@ -680,7 +679,7 @@ class ReferenceGeneratorAgent(AgentInterface):
                             ff_prompt = existing_vp
                             logger.info(f"[{segment_id}] 重新生成时命中已有提示词，复用原提示词...")
                         else:
-                            ff_prompt_tpl = load_prompt('reference', 'first_frame', 'zh' if is_zh else 'en')
+                            ff_prompt_tpl = self._prompt('reference', 'first_frame', 'zh' if is_zh else 'en')
                             try:
                                 local_llm = LLM()
                                 ff_prompt_resp = self._cancellable_query(
@@ -828,7 +827,7 @@ class ReferenceGeneratorAgent(AgentInterface):
                         ff_prompt = existing_vp
                         logger.info(f"[{segment_id}] 命中已有提示词，复用原提示词...")
                     else:
-                        ff_prompt_tpl = load_prompt('reference', "first_frame", 'zh' if is_zh else 'en')
+                        ff_prompt_tpl = self._prompt('reference', "first_frame", 'zh' if is_zh else 'en')
                         try:
                             local_llm = LLM()
                             ff_prompt_resp = self._cancellable_query(

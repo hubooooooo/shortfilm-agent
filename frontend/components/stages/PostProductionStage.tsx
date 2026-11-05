@@ -7,7 +7,7 @@ import { assetUrl } from './utils';
 import StageProgress from './StageProgress';
 import StageActions from './StageActions';
 
-export default function PostProductionStage({ state, onConfirm, onRegenerate, showConfirm, isRunning, hasPendingItems, hasNextStageStarted, artifacts, scriptArtifact }: StageViewProps) {
+export default function PostProductionStage({ stage, state, onConfirm, onRegenerate, showConfirm, isRunning, hasPendingItems, hasNextStageStarted, artifacts, scriptArtifact }: StageViewProps) {
   // 提取最终视频列表
   const finalVideos: any[] = state.artifact?.final_videos || [];
   
@@ -38,7 +38,7 @@ export default function PostProductionStage({ state, onConfirm, onRegenerate, sh
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-1">后期剪辑</h2>
+        <h2 className="text-lg font-semibold text-gray-800 mb-1">{stage?.name || '后期剪辑'}</h2>
         <p className="text-sm text-gray-500 mb-6">按剧集拼接视频，生成各集独立成片</p>
 
         {/* 运行中 */}

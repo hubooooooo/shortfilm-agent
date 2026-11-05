@@ -507,6 +507,93 @@ body {
     background: var(--lp-accent-soft) !important;
 }
 
+/* Scenario picker (home) */
+.sfa-scenario-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.sfa-scenario-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+    max-width: 240px;
+    padding: 8px 14px;
+    border: 1px solid var(--lp-border-subtle);
+    border-radius: var(--lp-radius-control);
+    background: var(--lp-surface);
+    color: var(--lp-text-default);
+    text-align: left;
+    transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.sfa-scenario-tab:hover {
+    border-color: var(--lp-border-strong);
+    background: var(--lp-surface-hover);
+}
+
+.sfa-scenario-tab-active,
+.sfa-scenario-tab-active:hover {
+    border-color: var(--lp-action-primary);
+    background: var(--lp-action-primary);
+    color: var(--lp-text-inverse);
+}
+
+.sfa-scenario-tab-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sfa-scenario-tab-name {
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.sfa-scenario-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    border-radius: var(--lp-radius-tag);
+    background: var(--lp-surface-soft);
+    color: var(--lp-text-muted);
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+.sfa-scenario-tab-active .sfa-scenario-badge {
+    background: rgb(255 255 255 / 0.16);
+    color: var(--lp-text-inverse);
+}
+
+.sfa-scenario-tab-tagline {
+    overflow: hidden;
+    max-width: 100%;
+    color: var(--lp-text-muted);
+    font-size: 12px;
+    line-height: 1.4;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sfa-scenario-tab-active .sfa-scenario-tab-tagline {
+    color: rgb(255 255 255 / 0.72);
+}
+
+.sfa-inspiration-media-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--lp-surface-subtle), var(--lp-surface-soft));
+    color: var(--lp-text-subtle);
+}
+
 .sfa-inspiration {
     margin-bottom: 56px !important;
 }

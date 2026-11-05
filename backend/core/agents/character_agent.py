@@ -16,7 +16,6 @@ from typing import Any, Optional, Dict, List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .base_agent import AgentInterface
-from prompts.loader import load_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -29,19 +28,17 @@ class CharacterDesignerAgent(AgentInterface):
 
     # ─── 提示词模板 ───
 
-    @staticmethod
-    def _char_prompt(name: str, desc: str, style: str, species: str = "") -> str:
+    def _char_prompt(self, name: str, desc: str, style: str, species: str = "") -> str:
         """角色4视图提示词 - 直接加载 character_zh 模板"""
         # 加载基础角色提示词模板
-        template = load_prompt('character', 'character', 'zh')
+        template = self._prompt('character', 'character', 'zh')
         # 替换角色信息
         return template.format(name=name, desc=desc, style=style)
 
-    @staticmethod
-    def _setting_prompt(name: str, desc: str, style: str) -> str:
+    def _setting_prompt(self, name: str, desc: str, style: str) -> str:
         """场景全景图提示词 - 直接加载 setting_zh 模板"""
         # 加载基础场景提示词模板
-        template = load_prompt('setting', 'setting', 'zh')
+        template = self._prompt('setting', 'setting', 'zh')
         # 替换场景信息
         return template.format(name=name, desc=desc, style=style)
 
@@ -258,11 +255,11 @@ class CharacterDesignerAgent(AgentInterface):
 
             # 选择评估提示词
             if asset_type == 'characters':
-                eval_prompt = load_prompt('character', 'eval_character', 'zh').format(
+                eval_prompt = self._prompt('character', 'eval_character', 'zh').format(
                     character_description=description
                 )
             else:
-                eval_prompt = load_prompt('setting', 'eval_setting', 'zh').format(
+                eval_prompt = self._prompt('setting', 'eval_setting', 'zh').format(
                     setting_description=description
                 )
 
@@ -312,7 +309,7 @@ class CharacterDesignerAgent(AgentInterface):
 
             # 选择评估提示词
             if asset_type == 'characters':
-                select_prompt = load_prompt('character', 'eval_select_best', 'zh').format(
+                select_prompt = self._prompt('character', 'eval_select_best', 'zh').format(
                     num_images=len(image_paths),
                     num_images_minus_1=len(image_paths) - 1,
                     character_name=name,
@@ -321,7 +318,7 @@ class CharacterDesignerAgent(AgentInterface):
                     images_list="\n".join([f"图片{i}: {p}" for i, p in enumerate(image_paths)])
                 )
             else:
-                select_prompt = load_prompt('setting', 'eval_select_best', 'zh').format(
+                select_prompt = self._prompt('setting', 'eval_select_best', 'zh').format(
                     num_images=len(image_paths),
                     num_images_minus_1=len(image_paths) - 1,
                     setting_name=name,

@@ -1,7 +1,7 @@
 <h1 align="center">ShortFilm Agent</h1>
 
 <p align="center">
-  <b>A reusable base for AI short-film creation agents: from one idea to a finished film</b>
+  <b>A reusable AIGC agent base: one workflow engine, adaptable to image and video products in any industry</b>
 </p>
 
 <p align="center">
@@ -10,49 +10,34 @@
 
 ---
 
-## Overview
+## What it is
 
-ShortFilm Agent turns a one-line idea, a synopsis or a vague concept into an executable film-production pipeline. Every stage produces intermediate assets you can **view, confirm, edit and regenerate**, and the last stage delivers the finished video:
+ShortFilm Agent turns a one-line request into a multi-stage production pipeline (copy/script → character and scene design → storyboard → images → video → final cut). Every stage produces assets you can **view, confirm, edit and regenerate item by item**, so a human stays in the loop.
 
-```
-Script → Character/Scene design → Storyboard → Reference images → Video clips → Post-production
-```
+Its core concept is the **scenario package**: one folder per industry scenario, declaring which stages it uses, default parameters, home-page copy and its own prompts. The same engine becomes a different product with a different scenario:
 
-It is built as a base, not a finished product: branding, models, model providers and stage agents are all replaceable through configuration.
+| Built-in scenario | Input | Output | Stages |
+| --- | --- | --- | --- |
+| **Short film** (`short_film`) | A story idea | A multi-episode short film | 6 |
+| **E-commerce ad** (`ecommerce_ad`) | Product and selling points | A 30-45 s vertical ad | 6 |
+| **Comic drama** (`comic_drama`) | World and characters | A vertical, episodic comic-style drama | 6 |
+| **Travel promo** (`travel_promo`) | Destination and highlights | A 45-60 s promo video | 6 |
+| **Product poster** (`product_poster`) | Product and selling points | A set of 3-4 posters (image only) | 4 |
 
-- **End-to-end**: one pipeline from script to final cut, with a confirmation stop after each stage.
-- **Pluggable models**: DashScope (Qwen / Wan), Volcano Ark (Seedream / Seedance), Kling, OpenAI, Gemini, DeepSeek, and any OpenAI-compatible endpoint.
-- **Config-driven extension**: add models in YAML; swap a stage's agent by pointing config at your class.
-- **One-click pipelines**: standard short video, digital human, action transfer.
-- **Deploy your way**: install script, `scripts/dev.sh`, or Docker Compose.
+Adding a scenario usually needs **no code**: copy a scenario package and edit its YAML and prompts. Scenarios can also add custom stage agents when prompts are not enough.
 
-## Layout
-
-```text
-backend/                  FastAPI backend
-  api/                    HTTP routers, schemas, services
-  core/stages.py          stage registry (order, names, default agents, overrides)
-  core/orchestrator.py    workflow engine: state machine, persistence, cross-stage sync
-  core/agents/            the six stage agents (AgentInterface subclasses)
-  models/                 provider clients + facades (llm/vlm/image/video_client.py)
-  registry/models.yaml    model registry
-  pipelines/ prompts/ templates/
-  config.py               defaults → config.yaml → SFA_* env vars
-frontend/                 Next.js frontend (branding in config/brand.ts)
-docs/                     architecture, configuration, extending, API, session format
-integrations/agent-skill/ optional skill for external agents (OpenClaw etc.), Feishu/WeChat delivery docs
-scripts/                  install.sh / install.bat / dev.sh
-docker-compose.yml, .env.example
-```
+It is designed as a teaching base for AI product-management courses: students adapt it to their target industry, mostly through AI coding tools ([CLAUDE.md](CLAUDE.md) / [AGENTS.md](AGENTS.md) tell those tools where to work).
 
 ## Quick start
 
-Requirements: Python 3.10+ (3.12 recommended, managed with [uv](https://docs.astral.sh/uv/)), Node.js 18+, ffmpeg.
+Requirements: Python 3.10+ (3.12 recommended, managed with [uv](https://docs.astral.sh/uv/)), Node.js 18+, ffmpeg, and an API key for at least one model provider.
 
 ```bash
 ./scripts/install.sh      # Windows: scripts\install.bat
 ./scripts/dev.sh          # backend :8000 + frontend :3000
 ```
+
+Open http://localhost:3000, enter API keys on the Settings page, pick a scenario and describe what you want.
 
 Manual:
 
@@ -68,21 +53,28 @@ cp .env.example .env      # fill in SFA_*_API_KEY
 docker compose up --build
 ```
 
-Open http://localhost:3000. API keys and default models can also be set on the Settings page.
+## Make your own scenario
+
+```bash
+python3 scripts/new-scenario.py my_scenario --from ecommerce_ad --name "My scenario"
+```
+
+Then edit `backend/scenarios/my_scenario/scenario.yaml` and its `prompts/`, run `cd backend && uv run --extra dev pytest tests/test_scenarios.py`, and reload (`POST /api/scenarios/reload` or restart the backend). Docs (Chinese):
+
+- [Your first scenario in 30 minutes](docs/tutorial-first-scenario.md)
+- [How the built-in scenarios are designed](docs/examples.md)
+- [Scenario package reference](docs/scenarios.md)
+- [Extending](docs/extending.md) · [Architecture](docs/architecture.md) · [Configuration](docs/configuration.md) · [HTTP API](docs/api.md) · [Contributing](CONTRIBUTING.md)
 
 ## Configuration
 
-Three layers, later wins: defaults in `backend/config.py` → `backend/config.yaml` (path overridable with `SFA_CONFIG`; written by the Settings page) → `SFA_*` environment variables (runtime only, never written back). Examples: `SFA_DASHSCOPE_API_KEY`, `SFA_ARK_API_KEY`, `SFA_MODEL_LLM`, `SFA_PORT`, `SFA_CORS_ORIGINS`. See [docs/configuration.md](docs/configuration.md).
-
-## Extending
-
-See [docs/extending.md](docs/extending.md): rebranding, adding models, connecting OpenAI-compatible endpoints, adding providers, replacing stage agents. Architecture: [docs/architecture.md](docs/architecture.md). HTTP API: [docs/api.md](docs/api.md).
+Three layers, later wins: defaults in `backend/config.py` → `backend/config.yaml` (written by the Settings page) → `SFA_*` environment variables (runtime only, never written back). `backend/config.yaml` and `.env` are git-ignored; never commit API keys.
 
 ## Tests
 
 ```bash
 cd backend && uv run --extra dev pytest
-cd frontend && npm run lint && npm run build
+cd frontend && npx tsc --noEmit && npm run build
 ```
 
 ## License

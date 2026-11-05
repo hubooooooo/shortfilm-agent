@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 核心编排器 / 工作流引擎
-管理六阶段状态机，协调各智能体执行，支持用户在任意阶段介入
+按会话所属场景包（core/scenarios.py）的阶段列表驱动状态机，协调各智能体执行，支持用户在任意阶段介入。
+阶段 id 是普通字符串：内置阶段即 WorkflowStage 的值，自定义阶段由场景包声明。
 """
 
 import asyncio
@@ -17,6 +18,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Set
 
 from config import settings
+from core.scenarios import Scenario, ScenarioRegistry
 from core.stages import STAGE_ORDER, WorkflowStage, build_agent_factories
 
 logger = logging.getLogger(__name__)
@@ -26,6 +28,7 @@ SAFE_ARTIFACT_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 
 
 SESSION_META_KEYS = (
+    "scenario",
     "idea",
     "user_textbox_input",
     "style",
@@ -82,12 +85,13 @@ class WorkflowState:
     # - stopped: 阶段被用户手动停止
     # - error: 阶段执行中遇到错误
 
-    def __init__(self, session_id: str):
+    def __init__(self, session_id: str, scenario_id: str = "", stage_ids: Optional[List[str]] = None):
         self.session_id = session_id
-        self.current_stage: WorkflowStage = WorkflowStage.INIT
-        self.status: Dict[str, str] = {
-            stage.value: "pending" for stage in WorkflowStage if stage != WorkflowStage.INIT and stage != WorkflowStage.COMPLETED
-        }
+        self.scenario_id = scenario_id
+        # 本会话的阶段顺序，来自场景包；旧会话默认使用内置六阶段
+        self.stage_ids: List[str] = list(stage_ids or [spec.value for spec in STAGE_ORDER])
+        self.current_stage: str = WorkflowStage.INIT.value
+        self.status: Dict[str, str] = {stage_id: "pending" for stage_id in self.stage_ids}
         self.artifacts: Dict[str, Any] = {}
         self.error: Optional[str] = None
         self.started_at: Optional[datetime] = None
@@ -98,7 +102,8 @@ class WorkflowState:
     def to_dict(self) -> Dict:
         return {
             "session_id": self.session_id,
-            "current_stage": self.current_stage.value,
+            "scenario": self.scenario_id,
+            "current_stage": self.current_stage,
             "status": copy.deepcopy(self.status),
             "error": self.error,
             "artifacts": copy.deepcopy(self.artifacts),
@@ -109,10 +114,11 @@ class WorkflowState:
 
 
 class WorkflowEngine:
-    """工作流引擎 - 管理六阶段状态机"""
+    """工作流引擎 - 按场景包的阶段列表管理状态机"""
 
-    def __init__(self):
+    def __init__(self, scenarios: Optional[ScenarioRegistry] = None):
         self.agent_factories = build_agent_factories(settings.WORKFLOW_AGENTS)
+        self.scenarios = scenarios or ScenarioRegistry()
         self.sessions: Dict[str, WorkflowState] = {}
         self._stop_events: Dict[str, threading.Event] = {}
         self._active_sessions: Set[str] = set()
@@ -127,7 +133,7 @@ class WorkflowEngine:
             if session_id not in self.sessions:
                 loaded_state = self.get_state(session_id)
                 if loaded_state is None:
-                    self.sessions[session_id] = WorkflowState(session_id=session_id)
+                    self.sessions[session_id] = self._new_state(session_id, {})
             if session_id not in self._stop_events:
                 self._stop_events[session_id] = threading.Event()
             return self.sessions[session_id]
@@ -146,29 +152,8 @@ class WorkflowEngine:
                         data = json.load(f)
 
                     # 从磁盘数据恢复 WorkflowState
-                    state = WorkflowState(session_id=session_id)
-                    
-                    stage_str = data.get('current_stage')
-                    state.current_stage = WorkflowStage(stage_str) if stage_str else WorkflowStage.INIT
-                    
-                    loaded_status = data.get('status')
-                    if isinstance(loaded_status, str):
-                        stages_completed = data.get('stages_completed', [])
-                        for stage in WorkflowStage:
-                            if stage != WorkflowStage.INIT and stage != WorkflowStage.COMPLETED:
-                                if stage.value in stages_completed:
-                                    state.status[stage.value] = "completed"
-                                elif stage.value == state.current_stage.value:
-                                    state.status[stage.value] = loaded_status
-                                else:
-                                    state.status[stage.value] = "pending"
-                    elif isinstance(loaded_status, dict):
-                        state.status = loaded_status
-
-                    state.artifacts = data.get('artifacts', {})
-                    state.stage_progress = data.get('stage_progress', {})
-                    state.meta = _extract_session_meta(data)
-                    state.updated_at = data.get('updated_at', 0)
+                    state = self._state_from_disk(data)
+                    state.session_id = session_id
 
                     # 缓存到内存
                     self.sessions[session_id] = state
@@ -192,12 +177,12 @@ class WorkflowEngine:
             session_path = os.path.join(self._session_dir, f"{session_id}.json")
             if session_id in self.sessions or os.path.exists(session_path):
                 raise ValueError(f"Session already exists: {session_id}")
-            state = WorkflowState(session_id=session_id)
+            state = self._new_state(session_id, meta)
             self.sessions[session_id] = state
             self._stop_events[session_id] = threading.Event()
             state.started_at = datetime.now()
-            state.status[state.current_stage.value] = "completed"
             state.meta = copy.deepcopy(meta)
+            state.meta["scenario"] = state.scenario_id
             state.updated_at = datetime.now()
             try:
                 self.save_session_to_disk(session_id, meta)
@@ -207,6 +192,7 @@ class WorkflowEngine:
                 raise
             return {
                 "session_id": session_id,
+                "scenario": state.scenario_id,
                 "status": copy.deepcopy(state.status),
                 "meta": copy.deepcopy(state.meta),
             }
@@ -215,7 +201,11 @@ class WorkflowEngine:
         """Return a deep-copied session snapshot from the unified in-memory state."""
         with self._state_lock:
             state = self.get_state(session_id)
-            return state.to_dict() if state else None
+            if not state:
+                return None
+            snapshot = state.to_dict()
+            snapshot["stages"] = [stage.to_dict() for stage in self.scenario_for(state).stages]
+            return snapshot
 
     def get_artifact_snapshot(self, session_id: str, stage: str) -> Optional[Any]:
         """Return a deep-copied artifact snapshot from the unified in-memory state."""
@@ -323,12 +313,12 @@ class WorkflowEngine:
         self.get_stop_event(session_id).set()
         with self._state_lock:
             state = self.get_state(session_id)
-            if state and state.status.get(state.current_stage.value) == "running":
-                state.status[state.current_stage.value] = "stopped"
+            if state and state.status.get(state.current_stage) == "running":
+                state.status[state.current_stage] = "stopped"
                 state.error = None  # 清除错误，因为是主动停止
                 state.updated_at = datetime.now()
-                current_progress = state.stage_progress.get(state.current_stage.value, {})
-                state.stage_progress[state.current_stage.value] = {
+                current_progress = state.stage_progress.get(state.current_stage, {})
+                state.stage_progress[state.current_stage] = {
                     **current_progress,
                     "step": "已停止",
                     "message": "已停止",
@@ -359,14 +349,65 @@ class WorkflowEngine:
 
         task.add_done_callback(_cleanup)
 
-    def _get_next_stage(self, current: WorkflowStage) -> Optional[WorkflowStage]:
+    # ──────────── 场景 ────────────
+    def scenario_for(self, state: WorkflowState) -> Scenario:
+        """Scenario of a session; sessions created before scenarios existed use the default one."""
+        scenario = self.scenarios.get(state.scenario_id)
+        if scenario is None:
+            scenario = self.scenarios.resolve(None, settings.DEFAULT_SCENARIO)
+        return scenario
+
+    def resolve_scenario(self, scenario_id: Optional[str]) -> Scenario:
+        """Scenario by id (KeyError when unknown); empty id means the configured default."""
+        return self.scenarios.resolve(scenario_id, settings.DEFAULT_SCENARIO)
+
+    def _new_state(self, session_id: str, meta: Dict[str, Any]) -> WorkflowState:
         try:
-            idx = STAGE_ORDER.index(current)
-            if idx + 1 < len(STAGE_ORDER):
-                return STAGE_ORDER[idx + 1]
-        except ValueError:
-            pass
-        return None
+            scenario = self.resolve_scenario((meta or {}).get("scenario"))
+        except KeyError:
+            logger.warning("Session %s references unknown scenario %r; using default", session_id, meta.get("scenario"))
+            scenario = self.resolve_scenario(None)
+        return WorkflowState(session_id, scenario.id, scenario.stage_ids)
+
+    def _state_from_disk(self, data: Dict[str, Any]) -> WorkflowState:
+        meta = _extract_session_meta(data)
+        state = self._new_state(data.get("session_id", ""), meta)
+        state.current_stage = str(data.get("current_stage") or WorkflowStage.INIT.value)
+
+        loaded_status = data.get("status")
+        if isinstance(loaded_status, str):
+            # 旧版本兼容：status 曾是单个字符串，配合 stages_completed 列表
+            if loaded_status == "waiting_intervention":
+                loaded_status = "waiting"
+            stages_completed = data.get("stages_completed", [])
+            for stage_id in state.stage_ids:
+                if stage_id in stages_completed:
+                    state.status[stage_id] = "completed"
+                elif stage_id == state.current_stage:
+                    state.status[stage_id] = loaded_status
+                else:
+                    state.status[stage_id] = "pending"
+        elif isinstance(loaded_status, dict):
+            state.status.update({k: v for k, v in loaded_status.items() if k in state.stage_ids})
+
+        state.artifacts = data.get("artifacts", {})
+        state.stage_progress = data.get("stage_progress", {})
+        state.error = data.get("error")
+        state.updated_at = data.get("updated_at", 0)
+        meta["scenario"] = state.scenario_id
+        state.meta = meta
+        return state
+
+    def has_stage(self, state: WorkflowState, stage: str) -> bool:
+        return stage in state.stage_ids
+
+    def _get_next_stage(self, state: WorkflowState, current: str) -> Optional[str]:
+        if current == WorkflowStage.INIT.value:
+            return state.stage_ids[0] if state.stage_ids else None
+        if current not in state.stage_ids:
+            return None
+        idx = state.stage_ids.index(current)
+        return state.stage_ids[idx + 1] if idx + 1 < len(state.stage_ids) else None
 
     # ──────────── 跨阶段同步逻辑 ────────────
     def _sync_artifacts_cross_stages(self, state: WorkflowState, stage: WorkflowStage, payload: Dict):
@@ -388,8 +429,7 @@ class WorkflowEngine:
                 return 
             
             # (A) 同步到第二阶段 (角色设计)
-            if new_chars or new_settings:
-                # 注意：WorkflowStage.CHARACTER_DESIGN 是 Enum，这里需要使用 .value
+            if (new_chars or new_settings) and self.has_stage(state, WorkflowStage.CHARACTER_DESIGN.value):
                 char_stage_key = WorkflowStage.CHARACTER_DESIGN.value
                 char_art = state.artifacts.get(char_stage_key)
                 if not isinstance(char_art, dict):
@@ -415,7 +455,7 @@ class WorkflowEngine:
                 state.artifacts[char_stage_key] = char_art
 
             # (B) 同步到第三阶段 (分镜设计)
-            if new_episodes:
+            if new_episodes and self.has_stage(state, WorkflowStage.STORYBOARD.value):
                 story_stage_key = WorkflowStage.STORYBOARD.value
                 story_art = state.artifacts.get(story_stage_key)
                 if not isinstance(story_art, dict):
@@ -469,103 +509,117 @@ class WorkflowEngine:
 
             # (A) 同步到第四阶段 (参考图生成)
             ref_stage_key = WorkflowStage.REFERENCE_GENERATION.value
-            ref_art = state.artifacts.get(ref_stage_key)
-            if not isinstance(ref_art, dict):
-                ref_art = {"scenes": [], "version": 1}
-            
-            existing_scenes = ref_art.get("scenes", [])
-            for c_info in all_sync_clips:
-                id = c_info["segment_id"]
-                idx = next((i for i, s in enumerate(existing_scenes) if s.get("id") == id), -1)
-                if idx == -1:
-                    existing_scenes.append({
-                        "id": id,
-                        "name": c_info["name"],
-                        "index": c_info["index"],
-                        "description": c_info["desc_ref"],
-                        "selected": "",
-                        "versions": [],
-                        "status": "pending",
-                        "episode": c_info["episode"]
-                    })
-                else:
-                    # 更新已有记录
-                    existing_scenes[idx]["description"] = c_info["desc_ref"]
-                    existing_scenes[idx]["episode"] = c_info["episode"]
-                    existing_scenes[idx]["index"] = c_info["index"]
-                    existing_scenes[idx]["name"] = c_info["name"]
-            
-            # 排序：确保片段显示顺序正确 (按 id 排序，例如 seg_01_01 < seg_07_01)
-            existing_scenes.sort(key=lambda x: x.get("id", ""))
-            ref_art["scenes"] = existing_scenes
-            state.artifacts[ref_stage_key] = ref_art
+            if self.has_stage(state, ref_stage_key):
+                self._sync_storyboard_to_references(state, ref_stage_key, all_sync_clips)
 
             # (B) 同步到第五阶段 (视频生成)
             video_stage_key = WorkflowStage.VIDEO_GENERATION.value
-            video_art = state.artifacts.get(video_stage_key)
-            if not isinstance(video_art, dict):
-                video_art = {"clips": [], "version": 1}
-            
-            existing_clips = video_art.get("clips", [])
-            for c_info in all_sync_clips:
-                id = c_info["segment_id"]
-                idx = next((i for i, c in enumerate(existing_clips) if c.get("id") == id), -1)
-                if idx == -1:
-                    existing_clips.append({
-                        "id": id,
-                        "name": c_info["name"],
-                        "index": c_info["index"],
-                        "description": c_info["desc_video"],
-                        "duration": c_info["duration"],
-                        "selected": "",
-                        "versions": [],
-                        "status": "pending",
-                        "episode": c_info["episode"]
-                    })
-                else:
-                    existing_clips[idx]["description"] = c_info["desc_video"]
-                    existing_clips[idx]["duration"] = c_info["duration"]
-                    existing_clips[idx]["episode"] = c_info["episode"]
-                    existing_clips[idx]["index"] = c_info["index"]
-                    existing_clips[idx]["name"] = c_info["name"]
-            
-            # 排序：确保片段显示顺序正确
-            existing_clips.sort(key=lambda x: x.get("id", ""))
-            video_art["clips"] = existing_clips
-            state.artifacts[video_stage_key] = video_art
+            if self.has_stage(state, video_stage_key):
+                self._sync_storyboard_to_videos(state, video_stage_key, all_sync_clips)
 
         # 案例 3: 角色/场景描述修改同步回剧本元数据，保证后续阶段读到用户最新描述。
         if stage == WorkflowStage.CHARACTER_DESIGN:
-            script_art = state.artifacts.get(WorkflowStage.SCRIPT_GENERATION.value)
-            if not isinstance(script_art, dict):
-                return
+            self._sync_designs_to_script(state, payload)
 
-            char_by_id = {
-                c.get("id"): c for c in payload.get("characters", [])
-                if isinstance(c, dict) and c.get("id")
-            }
-            setting_by_id = {
-                s.get("id"): s for s in payload.get("settings", [])
-                if isinstance(s, dict) and s.get("id")
-            }
+    @staticmethod
+    def _sync_storyboard_to_references(state: WorkflowState, ref_stage_key: str, all_sync_clips: List[Dict]):
+        ref_art = state.artifacts.get(ref_stage_key)
+        if not isinstance(ref_art, dict):
+            ref_art = {"scenes": [], "version": 1}
+        
+        existing_scenes = ref_art.get("scenes", [])
+        for c_info in all_sync_clips:
+            id = c_info["segment_id"]
+            idx = next((i for i, s in enumerate(existing_scenes) if s.get("id") == id), -1)
+            if idx == -1:
+                existing_scenes.append({
+                    "id": id,
+                    "name": c_info["name"],
+                    "index": c_info["index"],
+                    "description": c_info["desc_ref"],
+                    "selected": "",
+                    "versions": [],
+                    "status": "pending",
+                    "episode": c_info["episode"]
+                })
+            else:
+                # 更新已有记录
+                existing_scenes[idx]["description"] = c_info["desc_ref"]
+                existing_scenes[idx]["episode"] = c_info["episode"]
+                existing_scenes[idx]["index"] = c_info["index"]
+                existing_scenes[idx]["name"] = c_info["name"]
+        
+        # 排序：确保片段显示顺序正确 (按 id 排序，例如 seg_01_01 < seg_07_01)
+        existing_scenes.sort(key=lambda x: x.get("id", ""))
+        ref_art["scenes"] = existing_scenes
+        state.artifacts[ref_stage_key] = ref_art
 
-            for char in script_art.get("characters", []):
-                if not isinstance(char, dict):
-                    continue
-                source = char_by_id.get(char.get("character_id") or char.get("id"))
-                if source:
-                    for key in ("name", "description", "species"):
-                        if source.get(key):
-                            char[key] = source[key]
+    @staticmethod
+    def _sync_storyboard_to_videos(state: WorkflowState, video_stage_key: str, all_sync_clips: List[Dict]):
+        video_art = state.artifacts.get(video_stage_key)
+        if not isinstance(video_art, dict):
+            video_art = {"clips": [], "version": 1}
+        
+        existing_clips = video_art.get("clips", [])
+        for c_info in all_sync_clips:
+            id = c_info["segment_id"]
+            idx = next((i for i, c in enumerate(existing_clips) if c.get("id") == id), -1)
+            if idx == -1:
+                existing_clips.append({
+                    "id": id,
+                    "name": c_info["name"],
+                    "index": c_info["index"],
+                    "description": c_info["desc_video"],
+                    "duration": c_info["duration"],
+                    "selected": "",
+                    "versions": [],
+                    "status": "pending",
+                    "episode": c_info["episode"]
+                })
+            else:
+                existing_clips[idx]["description"] = c_info["desc_video"]
+                existing_clips[idx]["duration"] = c_info["duration"]
+                existing_clips[idx]["episode"] = c_info["episode"]
+                existing_clips[idx]["index"] = c_info["index"]
+                existing_clips[idx]["name"] = c_info["name"]
+        
+        # 排序：确保片段显示顺序正确
+        existing_clips.sort(key=lambda x: x.get("id", ""))
+        video_art["clips"] = existing_clips
+        state.artifacts[video_stage_key] = video_art
 
-            for setting in script_art.get("settings", []):
-                if not isinstance(setting, dict):
-                    continue
-                source = setting_by_id.get(setting.get("setting_id") or setting.get("id"))
-                if source:
-                    for key in ("name", "description"):
-                        if source.get(key):
-                            setting[key] = source[key]
+    @staticmethod
+    def _sync_designs_to_script(state: WorkflowState, payload: Dict):
+        script_art = state.artifacts.get(WorkflowStage.SCRIPT_GENERATION.value)
+        if not isinstance(script_art, dict):
+            return
+
+        char_by_id = {
+            c.get("id"): c for c in payload.get("characters", [])
+            if isinstance(c, dict) and c.get("id")
+        }
+        setting_by_id = {
+            s.get("id"): s for s in payload.get("settings", [])
+            if isinstance(s, dict) and s.get("id")
+        }
+
+        for char in script_art.get("characters", []):
+            if not isinstance(char, dict):
+                continue
+            source = char_by_id.get(char.get("character_id") or char.get("id"))
+            if source:
+                for key in ("name", "description", "species"):
+                    if source.get(key):
+                        char[key] = source[key]
+
+        for setting in script_art.get("settings", []):
+            if not isinstance(setting, dict):
+                continue
+            source = setting_by_id.get(setting.get("setting_id") or setting.get("id"))
+            if source:
+                for key in ("name", "description"):
+                    if source.get(key):
+                        setting[key] = source[key]
 
     def _recalculate_all_statuses(self, state: WorkflowState):
         """
@@ -576,10 +630,7 @@ class WorkflowEngine:
             - 如果列表项存在 selected 为空的情况: waiting
             - 如果列表项全部已选择(或不需要选择): completed
         """
-        for stage in WorkflowStage:
-            if stage in [WorkflowStage.INIT, WorkflowStage.COMPLETED]:
-                continue
-            s_val = stage.value
+        for s_val in state.stage_ids:
             # 如果当前阶段正在运行，不自动覆盖其为 completed/waiting (除非它目前是空)
             current_s_status = state.status.get(s_val, "pending")
             if current_s_status == "running" or current_s_status == "error":
@@ -742,7 +793,7 @@ class WorkflowEngine:
 
     async def execute_stage(self,
                             state: WorkflowState,
-                            stage: WorkflowStage,
+                            stage: str,
                             input_data: Any,
                             cancellation_check: Optional[Callable] = None,
                             progress_callback: Optional[Callable] = None,
@@ -754,11 +805,20 @@ class WorkflowEngine:
         else:
             input_data = copy.deepcopy(input_data)
 
+        stage = str(getattr(stage, "value", stage))
+        if not self.has_stage(state, stage):
+            raise ValueError(f"Stage {stage!r} is not part of scenario {state.scenario_id!r}")
+        scenario = self.scenario_for(state)
+
         with self._state_lock:
             input_data["_session_meta"] = copy.deepcopy(state.meta)
             input_data["_session_artifacts"] = copy.deepcopy(state.artifacts)
+            input_data["_scenario"] = scenario.to_dict()
 
-        agent = self.agent_factories[stage]()
+        agent = scenario.agent_class(stage, self.agent_factories.get(stage))()
+        agent.prompt_dirs = scenario.prompt_dirs
+        agent.scenario = scenario.to_dict()
+        agent.stage_options = dict(scenario.stage(stage).options)
         active_registered = False
         background_item_regeneration = self._is_background_item_regeneration(stage, intervention)
 
@@ -771,7 +831,7 @@ class WorkflowEngine:
 
         # 包装 progress_callback：运行中进度只写入全局内存实例，避免并发阶段频繁抢写 session JSON。
         def persist_stage_progress(phase: str, step: str, percent: float):
-            stage_key = stage.value
+            stage_key = stage
             try:
                 safe_percent = max(0, min(100, int(round(float(percent)))))
             except (TypeError, ValueError):
@@ -789,7 +849,7 @@ class WorkflowEngine:
         def merge_progress_artifact(data: dict):
             if not isinstance(data, dict):
                 return
-            stage_key = stage.value
+            stage_key = stage
             if data.get("assets_preview"):
                 state.artifacts[stage_key] = copy.deepcopy(data["assets_preview"])
 
@@ -863,10 +923,10 @@ class WorkflowEngine:
                 self._active_sessions.add(state.session_id)
                 active_registered = True
                 state.current_stage = stage
-                state.status[stage.value] = "running"
+                state.status[stage] = "running"
                 state.updated_at = datetime.now()
-                state.stage_progress[stage.value] = {
-                    "phase": stage.value,
+                state.stage_progress[stage] = {
+                    "phase": stage,
                     "step": "启动中...",
                     "message": "启动中...",
                     "percent": 0,
@@ -882,7 +942,7 @@ class WorkflowEngine:
         try:
             result = await agent.process(input_data, intervention=intervention)
             if not isinstance(result, dict):
-                logger.error(f"[execute_stage] Agent {stage.value} returned non-dict result: {type(result)}")
+                logger.error(f"[execute_stage] Agent {stage} returned non-dict result: {type(result)}")
                 result = {"payload": result}
             
             payload = result.get("payload", {})
@@ -894,7 +954,7 @@ class WorkflowEngine:
                     if requires_intervention:
                         # 【续写预览状态】直接保存 payload 以保留 new_episodes 供前端显示。
                         # 此时千万不要跨阶段同步（避免向第二、三阶段注入用户未确认的数据）。
-                        state.artifacts[stage.value] = copy.deepcopy(payload)
+                        state.artifacts[stage] = copy.deepcopy(payload)
                     else:
                         # 【确定续写 / 正常生成状态】
                         # 先同步增量数据到第二、三阶段
@@ -903,7 +963,7 @@ class WorkflowEngine:
                         clean_art = copy.deepcopy(payload)
                         for key in ["new_episodes", "new_characters", "new_settings", "sequel_idea"]:
                             clean_art.pop(key, None)
-                        state.artifacts[stage.value] = clean_art
+                        state.artifacts[stage] = clean_art
                 else:
                     # 其他阶段正常执行跨阶段同步和赋值
                     if background_item_regeneration:
@@ -916,12 +976,12 @@ class WorkflowEngine:
                         else:
                             keys = []
                         target_ids = self._background_regeneration_targets(stage, intervention)
-                        payload = self._merge_item_regeneration_payload(state.artifacts.get(stage.value, {}), payload, keys, target_ids)
+                        payload = self._merge_item_regeneration_payload(state.artifacts.get(stage, {}), payload, keys, target_ids)
                     self._sync_artifacts_cross_stages(state, stage, payload)
-                    state.artifacts[stage.value] = payload
+                    state.artifacts[stage] = payload
 
                 # 调试日志
-                logger.info(f"[execute_stage] stage={stage.value}, intervention={intervention is not None}, requires_intervention={result.get('requires_intervention')}, stage_completed={result.get('stage_completed')}")
+                logger.info(f"[execute_stage] stage={stage}, intervention={intervention is not None}, requires_intervention={result.get('requires_intervention')}, stage_completed={result.get('stage_completed')}")
 
                 # 重新计算所有阶段的状态（基于 artifacts 里的数据完整性）
                 self._recalculate_all_statuses(state)
@@ -929,16 +989,16 @@ class WorkflowEngine:
                 # 如果 result 明确标记了完成且不是干预，则可能需要覆盖为 completed (除非 recalculate 认为是 waiting)
                 if result.get("stage_completed") and not result.get("requires_intervention"):
                     # 如果 recalculate 没把它设为 waiting，就设为 completed
-                    if state.status.get(stage.value) != "waiting":
-                        state.status[stage.value] = "completed"
+                    if state.status.get(stage) != "waiting":
+                        state.status[stage] = "completed"
                 elif result.get("requires_intervention"):
-                    state.status[stage.value] = "waiting"
+                    state.status[stage] = "waiting"
 
                 state.updated_at = datetime.now()
-                state.stage_progress[stage.value] = {
-                    "phase": stage.value,
-                    "step": "等待确认" if state.status.get(stage.value) == "waiting" else "已完成",
-                    "message": "等待确认" if state.status.get(stage.value) == "waiting" else "已完成",
+                state.stage_progress[stage] = {
+                    "phase": stage,
+                    "step": "等待确认" if state.status.get(stage) == "waiting" else "已完成",
+                    "message": "等待确认" if state.status.get(stage) == "waiting" else "已完成",
                     "percent": 100,
                     "updated_at": time.time(),
                 }
@@ -949,14 +1009,14 @@ class WorkflowEngine:
         except asyncio.CancelledError:
             with self._state_lock:
                 if not background_item_regeneration:
-                    state.status[stage.value] = "stopped"
+                    state.status[stage] = "stopped"
                 state.error = None
                 state.updated_at = datetime.now()
-                state.stage_progress[stage.value] = {
-                    "phase": stage.value,
+                state.stage_progress[stage] = {
+                    "phase": stage,
                     "step": "已取消",
                     "message": "已取消",
-                    "percent": state.stage_progress.get(stage.value, {}).get("percent", 0),
+                    "percent": state.stage_progress.get(stage, {}).get("percent", 0),
                     "updated_at": time.time(),
                 }
                 self.save_session_to_disk(state.session_id)
@@ -965,14 +1025,14 @@ class WorkflowEngine:
         except Exception as e:
             with self._state_lock:
                 if not background_item_regeneration:
-                    state.status[stage.value] = "error"
+                    state.status[stage] = "error"
                 state.error = str(e)
                 state.updated_at = datetime.now()
-                state.stage_progress[stage.value] = {
-                    "phase": stage.value,
+                state.stage_progress[stage] = {
+                    "phase": stage,
                     "step": "执行失败",
                     "message": "执行失败",
-                    "percent": state.stage_progress.get(stage.value, {}).get("percent", 0),
+                    "percent": state.stage_progress.get(stage, {}).get("percent", 0),
                     "updated_at": time.time(),
                 }
                 # 确保保存错误状态
@@ -996,7 +1056,7 @@ class WorkflowEngine:
             logger.info(f"[continue_workflow] session={session_id}, current_stage={state.current_stage}, status={state.status}")
 
             # 检查当前状态是否已完成
-            current_stage_str = state.current_stage.value if hasattr(state.current_stage, "value") else str(state.current_stage)
+            current_stage_str = str(state.current_stage)
 
             # 在继续之前，先重新扫描一次状态，确保最新的选择已被计入
             self._recalculate_all_statuses(state)
@@ -1024,7 +1084,7 @@ class WorkflowEngine:
             if current_status == "waiting" or current_status == "completed":
                 # 直接进入下一阶段
                 state.status[current_stage_str] = "completed"
-                next_stage = self._get_next_stage(state.current_stage)
+                next_stage = self._get_next_stage(state, current_stage_str)
 
                 if not next_stage:
                     state.status[current_stage_str] = "completed"
@@ -1032,7 +1092,7 @@ class WorkflowEngine:
                     return {"status": "completed", "session_id": state.session_id, "status_map": copy.deepcopy(state.status)}
 
                 self.save_session_to_disk(state.session_id)
-                return {"status": "ready", "next_stage": next_stage.value, "session_id": state.session_id, "status_map": copy.deepcopy(state.status)}
+                return {"status": "ready", "next_stage": next_stage, "session_id": state.session_id, "status_map": copy.deepcopy(state.status)}
 
         # 其他状态（如 pending, stopped, error, completed）不允许继续
         return {
@@ -1370,7 +1430,7 @@ class WorkflowEngine:
             
             # 2. 将内存中的最新 state 合并到 data 中
             if state:
-                data["current_stage"] = state.current_stage.value
+                data["current_stage"] = state.current_stage
                 data["status"] = state.status
                 # 这里的 state.artifacts 应该是已经经过 _sync_artifacts_cross_stages 处理的最新的内存对象
                 data["artifacts"] = state.artifacts
@@ -1412,37 +1472,7 @@ class WorkflowEngine:
                 with open(fpath, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 sid = data["session_id"]
-                state = WorkflowState(sid)
-                try:
-                    state.current_stage = WorkflowStage(data.get("current_stage", "init"))
-                except ValueError:
-                    state.current_stage = WorkflowStage.INIT
-                
-                # 旧版本兼容：状态名称转换及迁移
-                old_status = data.get("status", "pending")
-                if isinstance(old_status, str):
-                    if old_status == "waiting_intervention":
-                        old_status = "waiting"
-                    elif old_status == "completed":
-                        old_status = "completed"
-                    
-                    stages_completed = data.get("stages_completed", [])
-                    for stage in WorkflowStage:
-                        if stage != WorkflowStage.INIT and stage != WorkflowStage.COMPLETED:
-                            if stage.value in stages_completed:
-                                state.status[stage.value] = "completed"
-                            elif stage.value == state.current_stage.value:
-                                state.status[stage.value] = old_status
-                            else:
-                                state.status[stage.value] = "pending"
-                elif isinstance(old_status, dict):
-                    state.status = old_status
-
-                state.artifacts = data.get("artifacts", {})
-                state.stage_progress = data.get("stage_progress", {})
-                state.error = data.get("error")
-                state.updated_at = data.get("updated_at", 0)
-                state.meta = _extract_session_meta(data)
+                state = self._state_from_disk(data)
                 self.sessions[sid] = state
             except json.JSONDecodeError:
                 logger.warning(f"Skipping corrupted session file: {filename}")
@@ -1642,7 +1672,9 @@ class WorkflowEngine:
                         "style": meta.get("style") or "",
                         "date": date_value,
                         "status": copy.deepcopy(state.status),
-                        "current_stage": state.current_stage.value,
+                        "current_stage": state.current_stage,
+                        "scenario": state.scenario_id,
+                        "stage_ids": list(state.stage_ids),
                         "meta": meta,
                         "stage_progress": copy.deepcopy(state.stage_progress),
                     })

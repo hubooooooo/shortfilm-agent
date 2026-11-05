@@ -4,10 +4,13 @@ import React, { useState, useCallback } from 'react';
 import { CheckCircle, Edit3, Save, RefreshCw, Check, Loader2, Play } from 'lucide-react';
 import type { StageStatus } from './types';
 
-// 需要"继续生成"的阶段（2、3、4、5）
-const STAGES_WITH_CONTINUE = ['character_design', 'storyboard', 'reference_generation', 'video_generation'];
-// 需要检查后续阶段的阶段（1）
-const STAGES_WITH_NEXT_CHECK = ['script_generation'];
+// 按阶段类型（内置阶段 type 与 id 相同；自定义阶段为 "custom"）决定按钮行为。
+// 逐项生成、支持"继续生成"的阶段类型
+const CONTINUE_STAGE_TYPES = ['character_design', 'storyboard', 'reference_generation', 'video_generation'];
+// 整体"重新生成"、需要提示后续阶段是否已开始的阶段类型（自定义阶段同样整体重跑）
+const REGEN_STAGE_TYPES = ['script_generation', 'custom'];
+// completed 状态下仍允许再次生成的阶段类型
+const ALWAYS_REGEN_STAGE_TYPES = ['script_generation', 'post_production', 'custom'];
 
 interface StageActionsProps {
   status: StageStatus;
@@ -18,6 +21,8 @@ interface StageActionsProps {
   onRegenerate?: () => void;
   /** 阶段ID */
   stageId?: string;
+  /** 阶段类型（内置阶段类型 id 或 "custom"），缺省时与 stageId 相同 */
+  stageType?: string;
   /** 是否有待生成的项（用于阶段2、3、4、5） */
   hasPendingItems?: boolean;
   /** 后续阶段是否已开始（用于阶段1） */
@@ -35,6 +40,7 @@ export default function StageActions({
   onSaveSelections,
   onRegenerate,
   stageId = '',
+  stageType,
   hasPendingItems = true,
   hasNextStageStarted = false,
   showConfirm = true,
@@ -42,19 +48,20 @@ export default function StageActions({
 }: StageActionsProps) {
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
 
-  // 是否是"继续生成"阶段（2、3、4、5）
-  const isContinueStage = STAGES_WITH_CONTINUE.includes(stageId);
-  // 是否是"重新生成"阶段（1）
-  const isRegenStage = STAGES_WITH_NEXT_CHECK.includes(stageId);
+  const type = stageType || stageId;
+  // 是否是"继续生成"阶段（角色、分镜、参考图、视频）
+  const isContinueStage = CONTINUE_STAGE_TYPES.includes(type);
+  // 是否是"重新生成"阶段（剧本、自定义阶段）
+  const isRegenStage = REGEN_STAGE_TYPES.includes(type);
 
   // 重新生成/继续生成按钮：在 != 'running' 状态下显示 (pending时也不会到这个组件)
   const showRegen = !!onRegenerate && status !== 'running';
   
   // 按钮是否禁用逻辑
   let isButtonDisabled = isRunning;
-  if (!isRunning && stageId) {
-    // 除了第一阶段和第六阶段外，completed 状态下禁用继续生成
-    if (stageId !== 'script_generation' && stageId !== 'post_production' && status === 'completed') {
+  if (!isRunning && type) {
+    // 除剧本、后期与自定义阶段外，completed 状态下禁用继续生成
+    if (!ALWAYS_REGEN_STAGE_TYPES.includes(type) && status === 'completed') {
       isButtonDisabled = true;
     }
   }

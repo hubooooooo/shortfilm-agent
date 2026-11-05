@@ -17,9 +17,6 @@ from .base_agent import AgentInterface
 
 logger = logging.getLogger(__name__)
 
-def _get_storyboard_prompt(name: str, lang: str = "zh") -> str:
-    from prompts.loader import load_prompt_with_fallback
-    return load_prompt_with_fallback("storyboard", name, lang, "zh")
 
 class StoryboardAgent(AgentInterface):
     def __init__(self):
@@ -419,9 +416,8 @@ class StoryboardAgent(AgentInterface):
             for item in items
         ]
 
-    @classmethod
     def _build_segmentation_prompt(
-        cls,
+        self,
         ep_n: int,
         ep_t: str,
         annotated_script: str,
@@ -429,7 +425,7 @@ class StoryboardAgent(AgentInterface):
         settings: List[dict],
         retry_error: str = "",
     ) -> str:
-        template = _get_storyboard_prompt("segment_plan", "zh")
+        template = self._prompt("storyboard", "segment_plan", "zh")
         retry_feedback = ""
         if retry_error:
             retry_feedback = f"上一次输出未通过校验，错误原因：{retry_error}\n请根据这个错误修正输出。"
@@ -444,19 +440,18 @@ class StoryboardAgent(AgentInterface):
             retry_feedback=retry_feedback,
         )
 
-    @classmethod
     def _build_segment_design_prompt(
-        cls,
+        self,
         ep_n: int,
         ep_t: str,
         plan: dict,
         style: str,
         retry_error: str = "",
     ) -> str:
-        items_payload = cls._scene_item_payload(plan.get("items", []))
+        items_payload = self._scene_item_payload(plan.get("items", []))
         segment_total = sum(int(item.get("duration") or 0) for item in plan.get("items", []))
-        output_total = max(cls.MIN_SEGMENT_DURATION, segment_total)
-        template = _get_storyboard_prompt("segment_design", "zh")
+        output_total = max(self.MIN_SEGMENT_DURATION, segment_total)
+        template = self._prompt("storyboard", "segment_design", "zh")
         retry_feedback = ""
         if retry_error:
             retry_feedback = f"上一次输出未通过校验，错误原因：{retry_error}\n请根据这个错误修正输出。"
@@ -684,15 +679,14 @@ class StoryboardAgent(AgentInterface):
             })
         return payload
 
-    @classmethod
     def _build_staging_continuity_prompt(
-        cls,
+        self,
         ep_n: int,
         ep_t: str,
         segments: List[dict],
         retry_error: str = "",
     ) -> str:
-        template = _get_storyboard_prompt("staging_continuity", "zh")
+        template = self._prompt("storyboard", "staging_continuity", "zh")
         retry_feedback = ""
         if retry_error:
             retry_feedback = f"上一次输出未通过校验，错误原因：{retry_error}\n请根据这个错误修正输出。"
@@ -701,7 +695,7 @@ class StoryboardAgent(AgentInterface):
             template,
             episode_number=ep_n,
             episode_title=ep_t,
-            segments=json.dumps(cls._staging_continuity_payload(segments), ensure_ascii=False, indent=2),
+            segments=json.dumps(self._staging_continuity_payload(segments), ensure_ascii=False, indent=2),
             retry_feedback=retry_feedback,
         )
 

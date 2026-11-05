@@ -122,8 +122,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "video_resolution": "720P",
         "video_generation_mode": "first_frame",
     },
-    # Replace the agent of a workflow stage: {<stage id>: "package.module:ClassName"}.
     "workflow": {
+        # Scenario used when a project does not name one (folder name under backend/scenarios/).
+        "default_scenario": "short_film",
+        # Replace the agent of a built-in stage in every scenario: {<stage id>: "package.module:ClassName"}.
         "agents": {},
     },
     # Extra model registry entries, same format as registry/models.yaml.
@@ -137,6 +139,7 @@ ENV_OVERRIDES = {
     f"{ENV_PREFIX}HOST": "server.host",
     f"{ENV_PREFIX}PORT": "server.port",
     f"{ENV_PREFIX}LOG_LEVEL": "server.log_level",
+    f"{ENV_PREFIX}DEFAULT_SCENARIO": "workflow.default_scenario",
     f"{ENV_PREFIX}PROXY": "api_providers.common.proxy",
     **{
         f"{ENV_PREFIX}MODEL_{key.upper()}": f"models.{key}"
@@ -285,6 +288,7 @@ def _coerce_config(data: Dict[str, Any]) -> Dict[str, Any]:
     workflow = clean["workflow"] if isinstance(clean.get("workflow"), dict) else {}
     agents = workflow.get("agents") if isinstance(workflow.get("agents"), dict) else {}
     workflow["agents"] = {str(k): str(v) for k, v in agents.items() if v}
+    workflow["default_scenario"] = str(workflow.get("default_scenario") or "short_film")
     clean["workflow"] = workflow
     if not isinstance(clean.get("custom_models"), dict):
         clean["custom_models"] = {}
@@ -406,6 +410,7 @@ class Config:
         cls.STYLE = _get(clean, "generation.style")
 
         cls.WORKFLOW_AGENTS = dict(_get(clean, "workflow.agents", {}) or {})
+        cls.DEFAULT_SCENARIO = _get(clean, "workflow.default_scenario") or "short_film"
 
     @classmethod
     def as_dict(cls) -> Dict[str, Any]:

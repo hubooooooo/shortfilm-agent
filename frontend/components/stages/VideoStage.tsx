@@ -331,7 +331,7 @@ function ClipRow({
 }
 
 /* ─── 主组件 ─── */
-export default function VideoStage({ state, sessionId, onConfirm, onIntervene, onRegenerate, onUpdateArtifact, onSaveSelections, showConfirm, isRunning, referenceArtifact, hasPendingItems, hasNextStageStarted, scriptArtifact }: StageViewProps) {
+export default function VideoStage({ stage, state, sessionId, onConfirm, onIntervene, onRegenerate, onUpdateArtifact, onSaveSelections, showConfirm, isRunning, referenceArtifact, hasPendingItems, hasNextStageStarted, scriptArtifact }: StageViewProps) {
   // 提取剧集标题映射
   const episodeTitleMap = React.useMemo(() => {
     const map: Record<number, string> = {};
@@ -515,7 +515,7 @@ export default function VideoStage({ state, sessionId, onConfirm, onIntervene, o
       <div className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6">
         {/* 标题栏 */}
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-lg font-semibold text-gray-800">视频生成</h2>
+          <h2 className="text-lg font-semibold text-gray-800">{stage?.name || '视频生成'}</h2>
         </div>
         <p className="text-sm text-gray-500 mb-4">
           将场景参考图转化为视频片段，支持逐项重新生成
