@@ -34,44 +34,48 @@ ShortFilm Agent 是一个**可二次开发的 AIGC 项目底座**。用户输入
 
 内置 5 个开箱即用的场景：
 
-<table align="center">
+<table>
   <thead>
     <tr>
       <th align="center">内置场景</th>
       <th align="center">输入</th>
       <th align="center">产出</th>
+      <th align="center">适用场景</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td align="left"><strong>AI 短片</strong></td>
+      <td align="left"><strong>AI 短片</strong>（6 阶段）</td>
       <td align="left">一句故事灵感</td>
-      <td align="left">多集剧情短片</td>
+      <td align="left">多集剧情短片，可逐集确认、修改、重新生成</td>
+      <td align="left">品牌故事、微电影、个人 IP 内容孵化</td>
     </tr>
     <tr>
-      <td align="left"><strong>电商广告片</strong></td>
+      <td align="left"><strong>电商广告片</strong>（6 阶段）</td>
       <td align="left">商品与卖点</td>
-      <td align="left">30–45 秒竖屏带货视频</td>
+      <td align="left">30–45 秒竖屏带货视频，突出商品卖点与促销氛围</td>
+      <td align="left">抖音、淘宝、视频号等平台的商品短视频投放</td>
     </tr>
     <tr>
-      <td align="left"><strong>漫剧</strong></td>
+      <td align="left"><strong>漫剧</strong>（6 阶段）</td>
       <td align="left">世界观与主角设定</td>
-      <td align="left">竖屏多集漫画短剧</td>
+      <td align="left">竖屏多集漫画短剧，人物画风与叙事风格均可定制</td>
+      <td align="left">网文改编、轻小说漫改、二次元短剧内容创作</td>
     </tr>
     <tr>
-      <td align="left"><strong>旅游宣传片</strong></td>
+      <td align="left"><strong>旅游宣传片</strong>（6 阶段）</td>
       <td align="left">目的地与宣传重点</td>
-      <td align="left">45–60 秒宣传片</td>
+      <td align="left">45–60 秒目的地宣传片，突出风光与人文特色</td>
+      <td align="left">景区宣传、文旅账号日常内容更新与活动造势</td>
     </tr>
     <tr>
-      <td align="left"><strong>商品海报</strong></td>
+      <td align="left"><strong>商品海报</strong>（4 阶段）</td>
       <td align="left">商品与卖点</td>
-      <td align="left">一组 3–4 张电商海报（纯图像）</td>
+      <td align="left">一组 3–4 张电商海报，纯图像流程、无需视频素材</td>
+      <td align="left">电商主图、大促活动海报、多平台商品素材设计</td>
     </tr>
   </tbody>
 </table>
-
-> 其中 4 个视频类场景均为 6 阶段流水线，商品海报为 4 阶段的纯图像流水线。
 
 新增一个场景通常**不需要写代码**：复制一个场景包，改 YAML 和提示词即可。需要更复杂的逻辑时，可以给场景加自定义阶段 Agent。
 
@@ -147,45 +151,54 @@ docker compose up --build
 
 ## 📚 文档
 
-<table align="center">
+<table>
   <thead>
     <tr>
       <th align="center">文档</th>
       <th align="center">内容</th>
+      <th align="center">一句话说明</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td align="left"><a href="docs/tutorial-first-scenario.md">30 分钟做出你的第一个场景</a></td>
       <td align="left">手把手教程</td>
+      <td align="left">入门必读：用 30 分钟做出属于你自己的第一个场景包</td>
     </tr>
     <tr>
       <td align="left"><a href="docs/examples.md">示例场景拆解</a></td>
       <td align="left">5 个内置场景的设计思路</td>
+      <td align="left">理解同一套流程引擎如何变成不同行业的产品</td>
     </tr>
     <tr>
       <td align="left"><a href="docs/scenarios.md">场景包参考</a></td>
       <td align="left">scenario.yaml 字段、提示词覆盖、自定义 Agent</td>
+      <td align="left">开发场景包时可随时查阅的完整配置速查手册</td>
     </tr>
     <tr>
       <td align="left"><a href="docs/extending.md">二次开发指南</a></td>
       <td align="left">换品牌、加模型、加服务商、替换 Agent</td>
+      <td align="left">把底座深度改造成自己产品的完整二次开发指南</td>
     </tr>
     <tr>
       <td align="left"><a href="docs/architecture.md">架构</a></td>
       <td align="left">分层、数据流、状态机</td>
+      <td align="left">了解多阶段流水线、状态机与数据流的运转方式</td>
     </tr>
     <tr>
       <td align="left"><a href="docs/configuration.md">配置</a></td>
       <td align="left">配置文件与环境变量</td>
+      <td align="left">三层配置合并机制与全部环境变量的详细说明</td>
     </tr>
     <tr>
       <td align="left"><a href="docs/api.md">HTTP API</a></td>
       <td align="left">接口说明</td>
+      <td align="left">前后端交互细节与外部 Agent 集成的接口说明</td>
     </tr>
     <tr>
       <td align="left"><a href="CONTRIBUTING.md">贡献指南</a></td>
       <td align="left">开发约定与提交流程</td>
+      <td align="left">参与项目贡献之前必读的开发约定与提交流程</td>
     </tr>
   </tbody>
 </table>
@@ -194,40 +207,48 @@ docker compose up --build
 
 LLM / VLM / 图像 / 视频各环节的模型可以在通义、火山方舟、可灵、OpenAI、Gemini、DeepSeek，以及任意 OpenAI 兼容接口之间切换。密钥统一填写在 `config.yaml` 的 `api_providers.<服务商 id>.<字段>` 下（「设置」页填写的也是它），各服务商的 id 依次为 `dashscope`、`ark`、`kling`、`openai`、`gemini`、`deepseek`、`openai_compatible`：
 
-<table align="center">
+<table>
   <thead>
     <tr>
       <th align="center">服务商</th>
+      <th align="center">主要用途</th>
       <th align="center">密钥字段</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td align="left">阿里云百炼 DashScope<br>通义千问、通义万相 Wan 图像/视频</td>
+      <td align="left">阿里云百炼 DashScope</td>
+      <td align="left">通义千问系列文本模型、通义万相 Wan 图像与视频生成，覆盖从剧本、分镜到成片的全部环节</td>
       <td align="left"><code>api_key</code></td>
     </tr>
     <tr>
-      <td align="left">火山方舟 Ark<br>豆包 Seedream 图像、Seedance 视频</td>
+      <td align="left">火山方舟 Ark</td>
+      <td align="left">豆包 Seedream 图像生成、Seedance 视频生成，适合广告片与宣传物料的生产</td>
       <td align="left"><code>api_key</code></td>
     </tr>
     <tr>
-      <td align="left">可灵 Kling<br>可灵视频生成</td>
+      <td align="left">可灵 Kling</td>
+      <td align="left">可灵 AI 视频生成，画面稳定、动态自然，适合剧情镜头与广告镜头</td>
       <td align="left"><code>access_key</code><br><code>secret_key</code></td>
     </tr>
     <tr>
-      <td align="left">OpenAI<br>GPT 文本/视觉、OpenAI 图像</td>
+      <td align="left">OpenAI</td>
+      <td align="left">GPT 系列文本与视觉模型、OpenAI 图像生成，通用能力强、生态完善</td>
       <td align="left"><code>api_key</code></td>
     </tr>
     <tr>
-      <td align="left">Google Gemini<br>Gemini 文本/视觉</td>
+      <td align="left">Google Gemini</td>
+      <td align="left">Gemini 系列文本与视觉模型，多模态理解能力强、上下文窗口长</td>
       <td align="left"><code>api_key</code></td>
     </tr>
     <tr>
-      <td align="left">DeepSeek<br>DeepSeek 文本</td>
+      <td align="left">DeepSeek</td>
+      <td align="left">DeepSeek 文本模型，性价比高，适合批量生成剧本与文案</td>
       <td align="left"><code>api_key</code></td>
     </tr>
     <tr>
-      <td align="left">OpenAI 兼容接口<br>vLLM、Ollama、OpenRouter 等</td>
+      <td align="left">OpenAI 兼容接口</td>
+      <td align="left">任意 OpenAI 兼容接口均可接入，如 vLLM、Ollama、OpenRouter 等自建或第三方服务</td>
       <td align="left"><code>api_key</code><br><code>base_url</code></td>
     </tr>
   </tbody>
