@@ -217,8 +217,8 @@ LLM / VLM / 图像 / 视频各环节的模型可以在通义、火山方舟、�
   </thead>
   <tbody>
     <tr>
-      <td align="left">阿里云百炼 DashScope</td>
-      <td align="left">通义千问系列文本模型、通义万相 Wan 图像与视频生成，也是项目默认配置，覆盖从剧本创作、分镜设计到成片合成的全部环节</td>
+      <td align="left">阿里云百炼</td>
+      <td align="left">通义千问系列文本模型、通义万相 Wan 图像与视频生成，也是项目默认配置，覆盖从剧本创作、角色设定、分镜设计到成片合成的全部环节</td>
       <td align="left"><code>api_key</code></td>
     </tr>
     <tr>
