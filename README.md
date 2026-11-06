@@ -248,7 +248,7 @@ LLM / VLM / 图像 / 视频各环节的模型可以在通义、火山方舟、�
     </tr>
     <tr>
       <td align="left">OpenAI 兼容接口</td>
-      <td align="left">任意 OpenAI 兼容接口均可接入，比如 vLLM、Ollama、OpenRouter 等自建或第三方模型服务</td>
+      <td align="left">任意 OpenAI 兼容接口均可接入，比如 vLLM、Ollama 等自建或第三方模型服务</td>
       <td align="left"><code>api_key</code><br><code>base_url</code></td>
     </tr>
   </tbody>
