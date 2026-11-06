@@ -5,43 +5,86 @@
 </p>
 
 <p align="center">
-  <b>简体中文</b> | <a href="./README_EN.md">English</a>
+  <b>简体中文</b> · <a href="./README_EN.md">English</a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.10+-black.svg" alt="Python">
-  <img src="https://img.shields.io/badge/Node.js-18+-black.svg" alt="Node">
-  <img src="https://img.shields.io/badge/License-MIT-black.svg" alt="License">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.10+-black.svg">
+  <img alt="Node.js" src="https://img.shields.io/badge/Node.js-18+-black.svg">
+  <img alt="License" src="https://img.shields.io/badge/License-MIT-black.svg">
 </p>
 
 ---
 
-## 这是什么
+## ✨ 这是什么
 
-ShortFilm Agent 是一个**可二次开发的 AIGC 项目底座**。用户输入一句需求，系统把它拆成一条多阶段的生产流水线（文案/剧本 → 角色与场景设定 → 分镜 → 画面 → 视频 → 成片）。每个阶段的产出都可以**查看、确认、修改、单项重新生成**，人始终在回路里。
+ShortFilm Agent 是一个**可二次开发的 AIGC 项目底座**。用户输入一句需求，系统把它拆成一条多阶段的生产流水线，每个阶段的产出都可以**查看、确认、修改、单项重新生成**，人始终在回路里。
 
-底座的核心是**场景包**：一个文件夹就是一个行业场景。它声明这个场景有哪些阶段、默认参数、首页文案，以及专属提示词。同一套引擎，换一个场景包就是另一个产品：
+```
+文案/剧本 → 角色与场景设定 → 分镜 → 画面 → 视频 → 成片
+```
 
-| 内置场景 | 输入 | 产出 | 阶段 |
-| --- | --- | --- | --- |
-| **AI 短片** | 一句故事灵感 | 多集剧情短片 | 6 |
-| **电商广告片** | 商品与卖点 | 30-45 秒竖屏带货视频 | 6 |
-| **漫剧** | 世界观与主角设定 | 竖屏多集漫画短剧 | 6 |
-| **旅游宣传片** | 目的地与宣传重点 | 45-60 秒宣传片 | 6 |
-| **商品海报** | 商品与卖点 | 一组 3-4 张电商海报（纯图像） | 4 |
+核心特性：
+
+- 🧩 **场景包即产品** —— 一个文件夹就是一个行业场景，换一个场景包就是另一个产品
+- 🔄 **多阶段流水线** —— 内置 6 种阶段类型，按场景自由组合
+- 👥 **人在回路** —— 每阶段产出可确认、修改、重生成
+- 🔌 **模型可插拔** —— 通义 / 火山方舟 / 可灵 / OpenAI / Gemini / DeepSeek 任意切换
+- 🚫 **零代码扩展** —— 新增场景通常只需复制场景包、改 YAML 和提示词
+
+内置 5 个开箱即用的场景：
+
+<table>
+  <thead>
+    <tr>
+      <th align="center">内置场景</th>
+      <th align="center">输入</th>
+      <th align="center">产出</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="left"><strong>AI 短片</strong></td>
+      <td align="left">一句故事灵感</td>
+      <td align="left">多集剧情短片</td>
+    </tr>
+    <tr>
+      <td align="left"><strong>电商广告片</strong></td>
+      <td align="left">商品与卖点</td>
+      <td align="left">30–45 秒竖屏带货视频</td>
+    </tr>
+    <tr>
+      <td align="left"><strong>漫剧</strong></td>
+      <td align="left">世界观与主角设定</td>
+      <td align="left">竖屏多集漫画短剧</td>
+    </tr>
+    <tr>
+      <td align="left"><strong>旅游宣传片</strong></td>
+      <td align="left">目的地与宣传重点</td>
+      <td align="left">45–60 秒宣传片</td>
+    </tr>
+    <tr>
+      <td align="left"><strong>商品海报</strong></td>
+      <td align="left">商品与卖点</td>
+      <td align="left">一组 3–4 张电商海报（纯图像）</td>
+    </tr>
+  </tbody>
+</table>
+
+> 其中 4 个视频类场景均为 6 阶段流水线，商品海报为 4 阶段的纯图像流水线。
 
 新增一个场景通常**不需要写代码**：复制一个场景包，改 YAML 和提示词即可。需要更复杂的逻辑时，可以给场景加自定义阶段 Agent。
 
-## 写给 AI 产品经理同学
+## 🎓 写给 AI 产品经理同学
 
-这个项目是为“基于底座做行业 AIGC 产品”的课程准备的。建议这样使用：
+这个项目是为「基于底座做行业 AIGC 产品」的课程准备的。建议这样使用：
 
-1. **先跑起来**，用 5 个内置场景各生成一次，感受多阶段 + 人在回路的产品形态。
-2. **读 [示例场景拆解](docs/examples.md)**，看同一套引擎怎样通过阶段组合和提示词变成不同产品。
-3. **跟着 [30 分钟做出你的第一个场景](docs/tutorial-first-scenario.md)**，为你的目标行业（电商、旅游、教育、房产、餐饮……）做一个场景包。
+1. **先跑起来**：用 5 个内置场景各生成一次，感受多阶段 + 人在回路的产品形态。
+2. **读 [示例场景拆解](docs/examples.md)**：看同一套引擎怎样通过阶段组合和提示词变成不同产品。
+3. **跟着 [30 分钟做出你的第一个场景](docs/tutorial-first-scenario.md)**：为你的目标行业（电商、旅游、教育、房产、餐饮……）做一个场景包。
 4. **用 AI 编程工具迭代**：项目附带 [CLAUDE.md](CLAUDE.md) / [AGENTS.md](AGENTS.md)，Claude Code、Cursor 等工具读完就知道该改哪里。你的主要工作是**定义场景、写好提示词、验收效果**。
 
-## 快速开始
+## 🚀 快速开始
 
 ### 环境要求
 
@@ -81,72 +124,133 @@ cp .env.example .env                   # 填入 SFA_*_API_KEY
 docker compose up --build
 ```
 
-## 目录结构
+## 📁 目录结构
 
 ```text
 .
 ├── backend/                     # Python FastAPI 后端
-│   ├── scenarios/               #   ★ 场景包：每个子目录是一个场景（scenario.yaml + prompts/ + agents.py）
+│   ├── scenarios/               # ★ 场景包：每个子目录是一个场景（scenario.yaml + prompts/ + agents.py）
 │   ├── core/
-│   │   ├── scenarios.py         #   场景包加载与校验
-│   │   ├── stages.py            #   6 种内置阶段类型
-│   │   ├── orchestrator.py      #   工作流引擎：按场景的阶段列表驱动状态机
-│   │   └── agents/              #   内置阶段 Agent
-│   ├── prompts/                 #   默认提示词（场景包可按文件覆盖）
-│   ├── models/                  #   模型服务商客户端 + 统一门面
-│   ├── registry/models.yaml     #   模型注册表
-│   └── config.py                #   配置：默认值 → config.yaml → SFA_* 环境变量
+│   │   ├── scenarios.py         # 场景包加载与校验
+│   │   ├── stages.py            # 6 种内置阶段类型
+│   │   ├── orchestrator.py      # 工作流引擎：按场景的阶段列表驱动状态机
+│   │   └── agents/              # 内置阶段 Agent
+│   ├── prompts/                 # 默认提示词（场景包可按文件覆盖）
+│   ├── models/                  # 模型服务商客户端 + 统一门面
+│   ├── registry/models.yaml     # 模型注册表
+│   └── config.py                # 配置：默认值 → config.yaml → SFA_* 环境变量
 ├── frontend/                    # Next.js 前端（首页场景选择、阶段工作台、设置页）
 ├── docs/                        # 文档
 ├── scripts/                     # install / dev / new-scenario 脚本
 └── integrations/agent-skill/    # 可选：供外部 Agent（OpenClaw 等）调用的 Skill
 ```
 
-## 文档
+## 📚 文档
 
-| 文档 | 内容 |
-| --- | --- |
-| [30 分钟做出你的第一个场景](docs/tutorial-first-scenario.md) | 手把手教程 |
-| [示例场景拆解](docs/examples.md) | 5 个内置场景的设计思路 |
-| [场景包参考](docs/scenarios.md) | scenario.yaml 字段、提示词覆盖、自定义 Agent |
-| [二次开发指南](docs/extending.md) | 换品牌、加模型、加服务商、替换 Agent |
-| [架构](docs/architecture.md) | 分层、数据流、状态机 |
-| [配置](docs/configuration.md) | 配置文件与环境变量 |
-| [HTTP API](docs/api.md) | 接口说明 |
-| [贡献指南](CONTRIBUTING.md) | 开发约定与提交流程 |
+<table>
+  <thead>
+    <tr>
+      <th align="center">文档</th>
+      <th align="center">内容</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="left"><a href="docs/tutorial-first-scenario.md">30 分钟做出你的第一个场景</a></td>
+      <td align="left">手把手教程</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="docs/examples.md">示例场景拆解</a></td>
+      <td align="left">5 个内置场景的设计思路</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="docs/scenarios.md">场景包参考</a></td>
+      <td align="left">scenario.yaml 字段、提示词覆盖、自定义 Agent</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="docs/extending.md">二次开发指南</a></td>
+      <td align="left">换品牌、加模型、加服务商、替换 Agent</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="docs/architecture.md">架构</a></td>
+      <td align="left">分层、数据流、状态机</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="docs/configuration.md">配置</a></td>
+      <td align="left">配置文件与环境变量</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="docs/api.md">HTTP API</a></td>
+      <td align="left">接口说明</td>
+    </tr>
+    <tr>
+      <td align="left"><a href="CONTRIBUTING.md">贡献指南</a></td>
+      <td align="left">开发约定与提交流程</td>
+    </tr>
+  </tbody>
+</table>
 
-## 模型与配置
+## 🔧 模型与配置
 
-LLM / VLM / 图像 / 视频各环节的模型可以在通义、火山方舟、可灵、OpenAI、Gemini、DeepSeek，以及任意 OpenAI 兼容接口之间切换。只需要填写实际选用模型对应的服务商密钥：
+LLM / VLM / 图像 / 视频各环节的模型可以在通义、火山方舟、可灵、OpenAI、Gemini、DeepSeek，以及任意 OpenAI 兼容接口之间切换。密钥统一填写在 `config.yaml` 的 `api_providers.<服务商 id>.<字段>` 下（「设置」页填写的也是它），各服务商的 id 依次为 `dashscope`、`ark`、`kling`、`openai`、`gemini`、`deepseek`、`openai_compatible`：
 
-| 服务商 | 配置字段 | 常用用途 |
-| :--- | :--- | :--- |
-| DashScope（阿里云百炼） | `dashscope.api_key` | 通义千问、通义万相 Wan 图像/视频 |
-| 火山方舟 Ark | `ark.api_key` | 豆包 Seedream 图像、Seedance 视频 |
-| 可灵 Kling | `kling.access_key` / `secret_key` | 可灵视频生成 |
-| OpenAI | `openai.api_key` | GPT 文本/视觉、OpenAI 图像 |
-| Gemini | `gemini.api_key` | Gemini 文本/视觉 |
-| DeepSeek | `deepseek.api_key` | DeepSeek 文本 |
-| OpenAI 兼容接口 | `openai_compatible.api_key` / `base_url` | vLLM、Ollama、OpenRouter 等 |
+<table>
+  <thead>
+    <tr>
+      <th align="center">服务商</th>
+      <th align="center">密钥字段</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="left">阿里云百炼 DashScope<br>通义千问、通义万相 Wan 图像/视频</td>
+      <td align="left"><code>api_key</code></td>
+    </tr>
+    <tr>
+      <td align="left">火山方舟 Ark<br>豆包 Seedream 图像、Seedance 视频</td>
+      <td align="left"><code>api_key</code></td>
+    </tr>
+    <tr>
+      <td align="left">可灵 Kling<br>可灵视频生成</td>
+      <td align="left"><code>access_key</code><br><code>secret_key</code></td>
+    </tr>
+    <tr>
+      <td align="left">OpenAI<br>GPT 文本/视觉、OpenAI 图像</td>
+      <td align="left"><code>api_key</code></td>
+    </tr>
+    <tr>
+      <td align="left">Google Gemini<br>Gemini 文本/视觉</td>
+      <td align="left"><code>api_key</code></td>
+    </tr>
+    <tr>
+      <td align="left">DeepSeek<br>DeepSeek 文本</td>
+      <td align="left"><code>api_key</code></td>
+    </tr>
+    <tr>
+      <td align="left">OpenAI 兼容接口<br>vLLM、Ollama、OpenRouter 等</td>
+      <td align="left"><code>api_key</code><br><code>base_url</code></td>
+    </tr>
+  </tbody>
+</table>
 
 配置按三层合并：`backend/config.py` 默认值 → `backend/config.yaml`（「设置」页写入的就是它）→ `SFA_*` 环境变量（只在运行时生效，不写回文件）。详见 [docs/configuration.md](docs/configuration.md)。
 
-> `backend/config.yaml` 和 `.env` 已被 git 忽略。**不要把 API Key 提交到仓库。**
+> ⚠️ `backend/config.yaml` 和 `.env` 已被 git 忽略。**不要把 API Key 提交到仓库。**
 
-## 测试
+## ✅ 测试
 
 ```bash
 cd backend && uv run --extra dev pytest      # 含场景包格式检查
 cd frontend && npx tsc --noEmit && npm run build
 ```
 
-## 路线图
+## 🗺️ 路线图
 
 - [ ] 更多场景包：知识科普、房产展示、餐饮探店
 - [ ] 内置阶段组件读取场景的 options，支持更多无代码配置
 - [ ] 跨镜头连贯性审查 Agent
 - [ ] 多镜头并行生成
 
-## License
+## 📄 License
 
 [MIT](./LICENSE)
