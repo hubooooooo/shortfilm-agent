@@ -168,7 +168,7 @@ docker compose up --build
     <tr>
       <td align="left"><a href="docs/examples.md">示例场景拆解</a></td>
       <td align="left">5 个内置场景的设计思路</td>
-      <td align="left">理解同一套流程引擎如何变成不同行业的产品</td>
+      <td align="left">理解同一套流程引擎是如何变成不同行业产品的</td>
     </tr>
     <tr>
       <td align="left"><a href="docs/scenarios.md">场景包参考</a></td>
@@ -188,7 +188,7 @@ docker compose up --build
     <tr>
       <td align="left"><a href="docs/configuration.md">配置</a></td>
       <td align="left">配置文件与环境变量</td>
-      <td align="left">三层配置合并机制与全部环境变量的详细说明</td>
+      <td align="left">三层配置合并机制与全部环境变量的详细说明文档</td>
     </tr>
     <tr>
       <td align="left"><a href="docs/api.md">HTTP API</a></td>
@@ -218,7 +218,7 @@ LLM / VLM / 图像 / 视频各环节的模型可以在通义、火山方舟、�
   <tbody>
     <tr>
       <td align="left">阿里云百炼 DashScope</td>
-      <td align="left">通义千问系列文本模型、通义万相 Wan 图像与视频生成，覆盖从剧本、分镜到成片的全部环节</td>
+      <td align="left">通义千问系列文本模型、通义万相 Wan 图像与视频生成，覆盖从剧本创作、分镜设计到成片合成的全部环节</td>
       <td align="left"><code>api_key</code></td>
     </tr>
     <tr>
