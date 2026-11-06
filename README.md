@@ -163,42 +163,42 @@ docker compose up --build
     <tr>
       <td align="left"><a href="docs/tutorial-first-scenario.md">30 分钟做出你的第一个场景</a></td>
       <td align="left">手把手教程</td>
-      <td align="left">入门必读：用 30 分钟做出属于你自己的第一个场景包</td>
+      <td align="left">入门必读：跟着教程用 30 分钟做出属于你自己的第一个场景包</td>
     </tr>
     <tr>
       <td align="left"><a href="docs/examples.md">示例场景拆解</a></td>
       <td align="left">5 个内置场景的设计思路</td>
-      <td align="left">理解同一套流程引擎是如何变成不同行业产品的</td>
+      <td align="left">理解同一套流程引擎是如何变成不同行业的内容生产产品的</td>
     </tr>
     <tr>
       <td align="left"><a href="docs/scenarios.md">场景包参考</a></td>
       <td align="left">scenario.yaml 字段、提示词覆盖、自定义 Agent</td>
-      <td align="left">开发场景包时可随时查阅的完整配置速查手册</td>
+      <td align="left">开发场景包过程中可以随时查阅的完整配置速查手册</td>
     </tr>
     <tr>
       <td align="left"><a href="docs/extending.md">二次开发指南</a></td>
       <td align="left">换品牌、加模型、加服务商、替换 Agent</td>
-      <td align="left">把底座深度改造成自己产品的完整二次开发指南</td>
+      <td align="left">把底座深度改造成属于自己产品的完整二次开发指南</td>
     </tr>
     <tr>
       <td align="left"><a href="docs/architecture.md">架构</a></td>
       <td align="left">分层、数据流、状态机</td>
-      <td align="left">了解多阶段流水线、状态机与数据流的运转方式</td>
+      <td align="left">深入了解多阶段流水线、状态机与数据流的完整运转方式</td>
     </tr>
     <tr>
       <td align="left"><a href="docs/configuration.md">配置</a></td>
       <td align="left">配置文件与环境变量</td>
-      <td align="left">三层配置合并机制与全部环境变量的详细说明文档</td>
+      <td align="left">三层配置合并机制与全部环境变量优先级的详细说明文档</td>
     </tr>
     <tr>
       <td align="left"><a href="docs/api.md">HTTP API</a></td>
       <td align="left">接口说明</td>
-      <td align="left">前后端交互细节与外部 Agent 集成的接口说明</td>
+      <td align="left">前后端交互细节与外部 Agent 集成方案的完整接口说明</td>
     </tr>
     <tr>
       <td align="left"><a href="CONTRIBUTING.md">贡献指南</a></td>
       <td align="left">开发约定与提交流程</td>
-      <td align="left">参与项目贡献之前必读的开发约定与提交流程</td>
+      <td align="left">参与项目贡献之前必读的开发约定、分支管理与提交流程</td>
     </tr>
   </tbody>
 </table>
@@ -218,37 +218,37 @@ LLM / VLM / 图像 / 视频各环节的模型可以在通义、火山方舟、�
   <tbody>
     <tr>
       <td align="left">阿里云百炼 DashScope</td>
-      <td align="left">通义千问系列文本模型、通义万相 Wan 图像与视频生成，覆盖从剧本创作、分镜设计到成片合成的全部环节</td>
+      <td align="left">通义千问系列文本模型、通义万相 Wan 图像与视频生成，也是项目默认配置，覆盖从剧本创作、分镜设计到成片合成的全部环节</td>
       <td align="left"><code>api_key</code></td>
     </tr>
     <tr>
       <td align="left">火山方舟 Ark</td>
-      <td align="left">豆包 Seedream 图像生成、Seedance 视频生成，适合广告片与宣传物料的生产</td>
+      <td align="left">豆包 Seedream 图像生成、Seedance 视频生成，适合各类广告片与宣传物料的生产制作</td>
       <td align="left"><code>api_key</code></td>
     </tr>
     <tr>
       <td align="left">可灵 Kling</td>
-      <td align="left">可灵 AI 视频生成，画面稳定、动态自然，适合剧情镜头与广告镜头</td>
+      <td align="left">可灵 AI 视频生成，画面稳定、动态自然，适合剧情镜头、广告镜头与宣传片</td>
       <td align="left"><code>access_key</code><br><code>secret_key</code></td>
     </tr>
     <tr>
       <td align="left">OpenAI</td>
-      <td align="left">GPT 系列文本与视觉模型、OpenAI 图像生成，通用能力强、生态完善</td>
+      <td align="left">GPT 系列文本与视觉模型、OpenAI 图像生成，通用能力强、第三方生态完善</td>
       <td align="left"><code>api_key</code></td>
     </tr>
     <tr>
       <td align="left">Google Gemini</td>
-      <td align="left">Gemini 系列文本与视觉模型，多模态理解能力强、上下文窗口长</td>
+      <td align="left">Gemini 系列文本与视觉模型，多模态理解能力强、支持超长上下文窗口</td>
       <td align="left"><code>api_key</code></td>
     </tr>
     <tr>
       <td align="left">DeepSeek</td>
-      <td align="left">DeepSeek 文本模型，性价比高，适合批量生成剧本与文案</td>
+      <td align="left">DeepSeek 文本模型，性价比高，适合批量生成剧本、分镜与营销文案</td>
       <td align="left"><code>api_key</code></td>
     </tr>
     <tr>
       <td align="left">OpenAI 兼容接口</td>
-      <td align="left">任意 OpenAI 兼容接口均可接入，如 vLLM、Ollama、OpenRouter 等自建或第三方服务</td>
+      <td align="left">任意 OpenAI 兼容接口均可接入，比如 vLLM、Ollama、OpenRouter 等自建或第三方模型服务</td>
       <td align="left"><code>api_key</code><br><code>base_url</code></td>
     </tr>
   </tbody>
