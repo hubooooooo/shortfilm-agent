@@ -34,7 +34,7 @@ ShortFilm Agent 是一个**可二次开发的 AIGC 项目底座**。用户输入
 
 内置 5 个开箱即用的场景：
 
-<table>
+<table align="center">
   <thead>
     <tr>
       <th align="center">内置场景</th>
@@ -147,7 +147,7 @@ docker compose up --build
 
 ## 📚 文档
 
-<table>
+<table align="center">
   <thead>
     <tr>
       <th align="center">文档</th>
@@ -194,7 +194,7 @@ docker compose up --build
 
 LLM / VLM / 图像 / 视频各环节的模型可以在通义、火山方舟、可灵、OpenAI、Gemini、DeepSeek，以及任意 OpenAI 兼容接口之间切换。密钥统一填写在 `config.yaml` 的 `api_providers.<服务商 id>.<字段>` 下（「设置」页填写的也是它），各服务商的 id 依次为 `dashscope`、`ark`、`kling`、`openai`、`gemini`、`deepseek`、`openai_compatible`：
 
-<table>
+<table align="center">
   <thead>
     <tr>
       <th align="center">服务商</th>
